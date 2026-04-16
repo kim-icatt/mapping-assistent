@@ -6,20 +6,22 @@ Last updated: 2026-04-16
 
 ## Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Frontend framework | Vue 3 + Vite | — |
-| Frontend language | TypeScript | — |
-| Backend framework | .NET Core Web API | — |
-| Backend language | C# | — |
-| ORM | Entity Framework Core | — |
-| AI provider | Claude API (Anthropic) | — |
+| Layer | Technology | Version | Status |
+|---|---|---|---|
+| Frontend framework | Vue 3 + Vite | — | Fase 1 (actief) |
+| Frontend language | TypeScript | — | Fase 1 (actief) |
+| Backend framework | .NET Core Web API | — | Gepland (fase 2) |
+| Backend language | C# | — | Gepland (fase 2) |
+| ORM | Entity Framework Core | — | Gepland (fase 2) |
+| AI provider | Claude API (Anthropic) | — | Fase 1 (actief) |
 
 ## Architecture
 
-- **Pattern:** Separated frontend SPA and backend REST API — two independent projects in the repo
-- **Data flow:** Vue3 frontend → REST calls → .NET Core API → Entity Framework (persistence) + Claude API (AI suggestions)
-- **AI integration:** The backend orchestrates calls to the Claude API, passing schema context and returning field-to-field mapping suggestions with confidence scores. The frontend presents suggestions for beheerder review and confirmation.
+- **Pattern:** Fase 1 — frontend-only SPA (Vue3 + Vite). Fase 2 — separated frontend SPA and backend REST API.
+- **Data flow (fase 1):** Vue3 frontend only; schema data and app state loaded from and persisted to local files (export/import). The frontend calls an AI API service directly for mapping suggestions.
+- **Data flow (fase 2):** Vue3 frontend → REST calls → .NET Core API → Entity Framework (persistence) + Claude API (AI suggestions).
+- **AI integration (fase 1):** The frontend calls an AI API service directly (provider TBD). Schema context is sent, mapping suggestions with confidence scores are returned. The beheerder reviews and confirms each suggestion.
+- **AI integration (fase 2):** AI calls are moved to the backend; the .NET Core API orchestrates them.
 
 ## Key Constraints
 
@@ -40,6 +42,7 @@ No constraints defined yet — to be documented as architectural decisions are m
 | Decision | Rationale | Date |
 |---|---|---|
 | Vue3 + .NET Core Web API | Company standard stack; aligns with team expertise and future maintainability | 2026-04-16 |
+| Fase 1: frontend-only (geen backend) | PoC fase vereist geen persistentie via backend; app state wordt opgeslagen en herladen via lokale bestandsexport. AI-integratie gebeurt direct vanuit de frontend. Backend en EF worden toegevoegd in fase 2. | 2026-04-16 |
 | Claude API for AI suggestions | Strong structured-data reasoning; suitable for field-to-field mapping inference | 2026-04-16 |
 
 ## Known Pain Points
