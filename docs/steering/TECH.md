@@ -45,6 +45,12 @@ No constraints defined yet — to be documented as architectural decisions are m
 | Fase 1: frontend-only (geen backend) | PoC fase vereist geen persistentie via backend; app state wordt opgeslagen en herladen via lokale bestandsexport. AI-integratie gebeurt direct vanuit de frontend. Backend en EF worden toegevoegd in fase 2. | 2026-04-16 |
 | Claude API for AI suggestions | Strong structured-data reasoning; suitable for field-to-field mapping inference | 2026-04-16 |
 
+## Open Questions
+
+| Vraag | Context | Datum |
+|---|---|---|
+| JSONata als transformatiestandaard | JSONata is een mogelijke expressietaal voor het opslaan van transformatieregels (standaardwaarden, waardekoppelingen, conditionele logica) in het JSON-exportformaat. Alternatief is een eigen JSON-structuur met een `type`-veld. JSONata voegt waarde toe als de applicatie transformaties zelf uitvoert (bijv. preview); bij een puur definitietool is plain JSON voldoende. Verder onderzoek nodig voor definitieve keuze. | 2026-04-17 |
+
 ## Known Pain Points
 
 None identified yet.
