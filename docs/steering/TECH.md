@@ -33,8 +33,7 @@ No constraints defined yet — to be documented as architectural decisions are m
 
 ## Code Conventions
 
-> To be defined once the project structure is established.
-
+- **Language:** Application code is written in English.
 - **Naming:** PascalCase for C# types and methods, camelCase for TypeScript/Vue, kebab-case for Vue component files
 
 ## Architecture Decision Records
