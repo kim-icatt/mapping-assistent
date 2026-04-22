@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh issue *)"
+      "Bash(grep -E \"\\\\.\\(vue|ts|tsx|js|jsx|py\\)$\")"
     ]
   }
 }
