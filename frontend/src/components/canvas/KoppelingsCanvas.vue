@@ -4,15 +4,19 @@ import { VueFlow } from '@vue-flow/core'
 import type { Node } from '@vue-flow/core'
 import type { SchemaField } from '@/types'
 import VeldKnooppunt from './VeldKnooppunt.vue'
+import SchemaKolomHeader from './SchemaKolomHeader.vue'
 import CanvasFitView from './CanvasFitView.vue'
 
 const props = defineProps<{
   sourceFields: SchemaField[]
   targetFields: SchemaField[]
+  sourceLabel?: string
+  targetLabel?: string
 }>()
 
 const NODE_WIDTH = 200
-const NODE_HEIGHT = 72
+const NODE_HEIGHT = 50
+const HEADER_HEIGHT = 52
 const PADDING = 20
 
 const containerRef = ref<HTMLDivElement | null>(null)
@@ -35,20 +39,53 @@ onUnmounted(() => {
 
 const targetX = computed(() => Math.max(containerWidth.value - NODE_WIDTH - PADDING, 400))
 
-const nodes = computed<Node[]>(() => [
-  ...props.sourceFields.map((field, i) => ({
-    id: `src-${field.id}`,
-    type: 'veldKnooppunt',
-    position: { x: PADDING, y: i * NODE_HEIGHT },
-    data: { name: field.name, dataType: field.dataType, required: field.required, side: 'source' },
-  })),
-  ...props.targetFields.map((field, i) => ({
-    id: `tgt-${field.id}`,
-    type: 'veldKnooppunt',
-    position: { x: targetX.value, y: i * NODE_HEIGHT },
-    data: { name: field.name, dataType: field.dataType, required: field.required, side: 'target' },
-  })),
-])
+const nodes = computed<Node[]>(() => {
+  const result: Node[] = []
+
+  if (props.sourceLabel) {
+    result.push({
+      id: 'header-src',
+      type: 'schemaKolomHeader',
+      position: { x: PADDING, y: 0 },
+      data: { label: props.sourceLabel, side: 'source' },
+      connectable: false,
+      selectable: false,
+    })
+  }
+
+  if (props.targetLabel) {
+    result.push({
+      id: 'header-tgt',
+      type: 'schemaKolomHeader',
+      position: { x: targetX.value, y: 0 },
+      data: { label: props.targetLabel, side: 'target' },
+      connectable: false,
+      selectable: false,
+    })
+  }
+
+  const fieldOffsetY = props.sourceLabel || props.targetLabel ? HEADER_HEIGHT : 0
+
+  props.sourceFields.forEach((field, i) => {
+    result.push({
+      id: `src-${field.id}`,
+      type: 'veldKnooppunt',
+      position: { x: PADDING, y: fieldOffsetY + i * NODE_HEIGHT },
+      data: { name: field.name, dataType: field.dataType, required: field.required, side: 'source' },
+    })
+  })
+
+  props.targetFields.forEach((field, i) => {
+    result.push({
+      id: `tgt-${field.id}`,
+      type: 'veldKnooppunt',
+      position: { x: targetX.value, y: fieldOffsetY + i * NODE_HEIGHT },
+      data: { name: field.name, dataType: field.dataType, required: field.required, side: 'target' },
+    })
+  })
+
+  return result
+})
 
 const isEmpty = computed(() => props.sourceFields.length === 0 && props.targetFields.length === 0)
 
@@ -75,6 +112,9 @@ defineExpose({ nodes })
     >
       <template #node-veldKnooppunt="nodeProps">
         <VeldKnooppunt :data="nodeProps.data" />
+      </template>
+      <template #node-schemaKolomHeader="nodeProps">
+        <SchemaKolomHeader :data="nodeProps.data" />
       </template>
       <CanvasFitView :trigger="containerWidth" />
     </VueFlow>

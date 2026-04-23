@@ -20,6 +20,11 @@ const targetFields: SchemaField[] = [
 
 <template>
   <main style="height: 100%">
-    <KoppelingsCanvas :source-fields="sourceFields" :target-fields="targetFields" />
+    <KoppelingsCanvas
+      :source-fields="sourceFields"
+      :target-fields="targetFields"
+      source-label="e-Suite"
+      target-label="OpenZaak"
+    />
   </main>
 </template>
