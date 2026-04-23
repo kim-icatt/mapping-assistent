@@ -50,4 +50,15 @@ Elke interactieve functie moet de volgende statussen ondersteunen, tenzij explic
 | Desktop | ≥ 1280px | Volledige driepanenopmaak (bron / canvas / doel) |
 
 <!-- MANUAL ADDITIONS START -->
+## Oriëntatieschets
+
+De oriëntatieschets (`docs/design/orientation-design.png`) toont de beoogde UI en is de primaire visuele referentie voor de driepanenopmaak.
+
+![Oriëntatieschets](../design/orientation-design.png)
+
+Wat de schets laat zien:
+- **Linkerpaneel** — bronschema (e-Suite) als uitklapbare veldenboom; elk veld toont naam, datatype (str/num/obj/arr/date/enum) en REQ-badge voor verplichte velden
+- **Middenpaneel** — doelschema (OpenZaak) met dezelfde opmaak; verbindingslijnen lopen van bronveld naar doelveld
+- **Rechterpaneel** — mappingsoverzicht met actieve koppelingen, status (OK / Warning), transformatieregels en een sectie "Unmapped Required Fields"
+- **Topbalk** — Export, Clear en Auto-Map acties
 <!-- MANUAL ADDITIONS END -->

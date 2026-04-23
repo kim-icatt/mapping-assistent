@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -E \"\\\\.\\(vue|ts|tsx|js|jsx|py\\)$\")"
+      "Bash(grep -E \"\\\\.\\(vue|ts|tsx|js|jsx|py\\)$\")",
+      "Bash(npm run *)"
     ]
   }
 }
