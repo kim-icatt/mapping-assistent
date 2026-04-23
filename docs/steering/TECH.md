@@ -29,7 +29,16 @@ No constraints defined yet — to be documented as architectural decisions are m
 
 ## Commands
 
-> To be filled in once the projects are scaffolded.
+All commands run from `frontend/`.
+
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start dev server (HMR) |
+| `npm run build` | Type-check + production build |
+| `npm run test:unit` | Run Vitest unit/component tests |
+| `npm run test:e2e` | Run Playwright E2E tests |
+| `npm run lint` | ESLint |
+| `npm run format` | Prettier |
 
 ## Code Conventions
 
