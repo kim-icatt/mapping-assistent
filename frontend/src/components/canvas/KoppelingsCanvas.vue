@@ -70,6 +70,7 @@ defineExpose({ nodes })
       :pan-on-drag="false"
       :zoom-on-scroll="false"
       :zoom-on-pinch="false"
+      :zoom-on-double-click="false"
       :pan-on-scroll="false"
     >
       <template #node-veldKnooppunt="nodeProps">
