@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { VueFlow } from '@vue-flow/core'
 import type { Node } from '@vue-flow/core'
 import type { SchemaField } from '@/types'
@@ -10,20 +10,41 @@ const props = defineProps<{
   targetFields: SchemaField[]
 }>()
 
-const TARGET_X = 600
+const NODE_WIDTH = 200
 const NODE_HEIGHT = 72
+const PADDING = 20
+
+const containerRef = ref<HTMLDivElement | null>(null)
+const containerWidth = ref(0)
+
+const resizeObserver = new ResizeObserver((entries) => {
+  if (entries[0]) containerWidth.value = entries[0].contentRect.width
+})
+
+onMounted(() => {
+  if (containerRef.value) {
+    containerWidth.value = containerRef.value.clientWidth
+    resizeObserver.observe(containerRef.value)
+  }
+})
+
+onUnmounted(() => {
+  resizeObserver.disconnect()
+})
+
+const targetX = computed(() => Math.max(containerWidth.value - NODE_WIDTH - PADDING, 400))
 
 const nodes = computed<Node[]>(() => [
   ...props.sourceFields.map((field, i) => ({
     id: `src-${field.id}`,
     type: 'veldKnooppunt',
-    position: { x: 0, y: i * NODE_HEIGHT },
+    position: { x: PADDING, y: i * NODE_HEIGHT },
     data: { name: field.name, dataType: field.dataType, required: field.required, side: 'source' },
   })),
   ...props.targetFields.map((field, i) => ({
     id: `tgt-${field.id}`,
     type: 'veldKnooppunt',
-    position: { x: TARGET_X, y: i * NODE_HEIGHT },
+    position: { x: targetX.value, y: i * NODE_HEIGHT },
     data: { name: field.name, dataType: field.dataType, required: field.required, side: 'target' },
   })),
 ])
@@ -34,12 +55,22 @@ defineExpose({ nodes })
 </script>
 
 <template>
-  <div class="koppelingscanvas">
+  <div ref="containerRef" class="koppelingscanvas">
     <div v-if="isEmpty" class="empty-state" data-testid="empty-state">
       <p>Laad een bron- en doelschema om te beginnen met koppelen.</p>
     </div>
 
-    <VueFlow v-else :nodes="nodes" :edges="[]" fit-view-on-init :nodes-draggable="false">
+    <VueFlow
+      v-else
+      :nodes="nodes"
+      :edges="[]"
+      fit-view-on-init
+      :nodes-draggable="false"
+      :pan-on-drag="false"
+      :zoom-on-scroll="false"
+      :zoom-on-pinch="false"
+      :pan-on-scroll="false"
+    >
       <template #node-veldKnooppunt="nodeProps">
         <VeldKnooppunt :data="nodeProps.data" />
       </template>

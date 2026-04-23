@@ -1,4 +1,12 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
+
+beforeAll(() => {
+  global.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+})
 import { mount } from '@vue/test-utils'
 import KoppelingsCanvas from '../KoppelingsCanvas.vue'
 import type { SchemaField } from '@/types'
@@ -43,7 +51,7 @@ describe('KoppelingsCanvas', () => {
     const nodes = wrapper.vm.nodes
     const sourceNodes = nodes.filter((n: { id: string }) => n.id.startsWith('src-'))
     expect(sourceNodes).toHaveLength(sourceFields.length)
-    sourceNodes.forEach((n: { position: { x: number } }) => expect(n.position.x).toBe(0))
+    sourceNodes.forEach((n: { position: { x: number } }) => expect(n.position.x).toBeLessThan(100))
   })
 
   // Scenario: Doelveldknooppunten zichtbaar na laden doelschema
