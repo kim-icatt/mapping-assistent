@@ -4,6 +4,7 @@ import { VueFlow } from '@vue-flow/core'
 import type { Node } from '@vue-flow/core'
 import type { SchemaField } from '@/types'
 import VeldKnooppunt from './VeldKnooppunt.vue'
+import CanvasFitView from './CanvasFitView.vue'
 
 const props = defineProps<{
   sourceFields: SchemaField[]
@@ -74,6 +75,7 @@ defineExpose({ nodes })
       <template #node-veldKnooppunt="nodeProps">
         <VeldKnooppunt :data="nodeProps.data" />
       </template>
+      <CanvasFitView :trigger="containerWidth" />
     </VueFlow>
   </div>
 </template>
