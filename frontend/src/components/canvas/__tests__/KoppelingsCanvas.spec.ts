@@ -1,19 +1,7 @@
-import { describe, it, expect, beforeAll } from 'vitest'
-
-beforeAll(() => {
-  global.ResizeObserver = class {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  }
-})
+import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import KoppelingsCanvas from '../KoppelingsCanvas.vue'
 import type { SchemaField } from '@/types'
-
-const mountOptions = {
-  global: { stubs: { VueFlow: true, VeldKnooppunt: true } },
-}
 
 const sourceFields: SchemaField[] = [
   { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
@@ -29,40 +17,33 @@ describe('KoppelingsCanvas', () => {
   it("toont een lege staat als er geen schema's zijn geladen", () => {
     const wrapper = mount(KoppelingsCanvas, {
       props: { sourceFields: [], targetFields: [] },
-      ...mountOptions,
     })
     expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
   })
 
-  it('verbergt de lege staat als er schema-velden zijn', () => {
+  it("verbergt de lege staat als er schema-velden zijn", () => {
     const wrapper = mount(KoppelingsCanvas, {
       props: { sourceFields, targetFields },
-      ...mountOptions,
     })
     expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
   })
 
   // Scenario: Bronveldknooppunten zichtbaar na laden bronschema
-  it('genereert een node per bronveld met positie links', () => {
+  it('toont alle bronvelden in het bronpaneel', () => {
     const wrapper = mount(KoppelingsCanvas, {
       props: { sourceFields, targetFields: [] },
-      ...mountOptions,
     })
-    const nodes = wrapper.vm.nodes
-    const sourceNodes = nodes.filter((n: { id: string }) => n.id.startsWith('src-'))
-    expect(sourceNodes).toHaveLength(sourceFields.length)
-    sourceNodes.forEach((n: { position: { x: number } }) => expect(n.position.x).toBeLessThan(100))
+    const sourceKolom = wrapper.find('[data-testid="source-kolom"]')
+    expect(sourceKolom.text()).toContain('zaakId')
+    expect(sourceKolom.text()).toContain('omschrijving')
   })
 
   // Scenario: Doelveldknooppunten zichtbaar na laden doelschema
-  it('genereert een node per doelveld met positie rechts', () => {
+  it('toont alle doelvelden in het doelpaneel', () => {
     const wrapper = mount(KoppelingsCanvas, {
       props: { sourceFields: [], targetFields },
-      ...mountOptions,
     })
-    const nodes = wrapper.vm.nodes
-    const targetNodes = nodes.filter((n: { id: string }) => n.id.startsWith('tgt-'))
-    expect(targetNodes).toHaveLength(targetFields.length)
-    targetNodes.forEach((n: { position: { x: number } }) => expect(n.position.x).toBeGreaterThan(0))
+    const targetKolom = wrapper.find('[data-testid="target-kolom"]')
+    expect(targetKolom.text()).toContain('uuid')
   })
 })

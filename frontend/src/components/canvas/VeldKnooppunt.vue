@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { Handle, Position } from '@vue-flow/core'
-
 const props = defineProps<{
   data: {
     name: string
@@ -9,62 +7,42 @@ const props = defineProps<{
     side?: 'source' | 'target'
   }
 }>()
+
+const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
+  string:  { bg: 'bg-blue-50',   text: 'text-blue-600',   label: 'str'  },
+  number:  { bg: 'bg-amber-50',  text: 'text-amber-600',  label: 'num'  },
+  boolean: { bg: 'bg-purple-50', text: 'text-purple-600', label: 'bool' },
+  date:    { bg: 'bg-emerald-50',text: 'text-emerald-600',label: 'date' },
+  object:  { bg: 'bg-slate-100', text: 'text-slate-500',  label: 'obj'  },
+  array:   { bg: 'bg-cyan-50',   text: 'text-cyan-600',   label: 'arr'  },
+  enum:    { bg: 'bg-rose-50',   text: 'text-rose-600',   label: 'enum' },
+  unknown: { bg: 'bg-slate-100', text: 'text-slate-400',  label: '?'    },
+}
+
+const tc = typeConfig[props.data.dataType] ?? typeConfig.unknown
 </script>
 
 <template>
   <div
-    class="veld-knooppunt"
+    class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm transition-colors hover:bg-slate-50 group cursor-default"
     :aria-label="`${props.data.name}, ${props.data.dataType}${props.data.required ? ', verplicht' : ''}`"
   >
-    <Handle v-if="props.data.side !== 'target'" type="source" :position="Position.Right" />
-    <Handle v-if="props.data.side !== 'source'" type="target" :position="Position.Left" />
+    <!-- Left dot indicator -->
+    <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
 
-    <span class="veld-naam">{{ props.data.name }}</span>
-    <span class="datatype-chip" :data-type="props.data.dataType">{{ props.data.dataType }}</span>
-    <span v-if="props.data.required" class="req-badge" data-testid="req-badge">REQ</span>
+    <!-- Field name (monospace) -->
+    <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">{{ props.data.name }}</span>
+
+    <!-- Type badge -->
+    <span :class="['text-[11px] leading-none px-1.5 py-0.5 rounded font-medium shrink-0', tc.bg, tc.text]">
+      {{ tc.label }}
+    </span>
+
+    <!-- Required badge -->
+    <span
+      v-if="props.data.required"
+      data-testid="req-badge"
+      class="text-[10px] leading-none px-1 py-0.5 rounded bg-red-50 text-red-600 font-bold shrink-0 tracking-wide"
+    >REQ</span>
   </div>
 </template>
-
-<style scoped>
-.veld-knooppunt {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  font-size: 13px;
-  min-width: 180px;
-}
-
-.veld-naam {
-  font-weight: 600;
-  flex: 1;
-}
-
-.datatype-chip {
-  font-size: 11px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: #e2e8f0;
-  color: #475569;
-}
-
-.datatype-chip[data-type='string'] { background: #dbeafe; color: #1d4ed8; }
-.datatype-chip[data-type='number'] { background: #ffedd5; color: #c2410c; }
-.datatype-chip[data-type='date']   { background: #ccfbf1; color: #0f766e; }
-.datatype-chip[data-type='object'] { background: #f3e8ff; color: #7e22ce; }
-.datatype-chip[data-type='array']  { background: #dcfce7; color: #15803d; }
-.datatype-chip[data-type='enum']   { background: #fef9c3; color: #a16207; }
-.datatype-chip[data-type='boolean']{ background: #fee2e2; color: #b91c1c; }
-
-.req-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 3px;
-  background: #fee2e2;
-  color: #b91c1c;
-}
-</style>

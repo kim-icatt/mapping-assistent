@@ -8,44 +8,36 @@ const props = defineProps<{
 </script>
 
 <template>
-  <div class="schema-kolom-header">
-    <span class="schema-naam">{{ props.data.label }}</span>
-    <span class="schema-badge" :class="props.data.side">
-      {{ props.data.side === 'source' ? 'SOURCE' : 'DEST' }}
+  <div
+    class="px-4 py-2.5 border-b border-slate-200 flex items-center gap-2.5 sticky top-0 z-10 bg-white"
+    :class="props.data.side === 'source' ? 'bg-blue-50/30' : 'bg-emerald-50/30'"
+  >
+    <!-- Color dot -->
+    <div
+      class="h-6 w-6 rounded-md flex items-center justify-center shrink-0 text-[11px] font-bold"
+      :class="props.data.side === 'source'
+        ? 'bg-blue-100 text-blue-700'
+        : 'bg-emerald-100 text-emerald-700'"
+    >
+      {{ props.data.side === 'source' ? 'B' : 'D' }}
+    </div>
+
+    <!-- System name -->
+    <h2
+      class="text-sm font-bold tracking-tight truncate"
+      :class="props.data.side === 'source' ? 'text-blue-800' : 'text-emerald-800'"
+    >
+      {{ props.data.label }}
+    </h2>
+
+    <!-- Side badge -->
+    <span
+      class="text-[10px] px-1.5 py-0.5 rounded-md font-bold tracking-widest uppercase shrink-0"
+      :class="props.data.side === 'source'
+        ? 'bg-blue-100 text-blue-700'
+        : 'bg-emerald-100 text-emerald-700'"
+    >
+      {{ props.data.side === 'source' ? 'Bron' : 'Doel' }}
     </span>
   </div>
 </template>
-
-<style scoped>
-.schema-kolom-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px 6px 0 0;
-  font-size: 13px;
-  font-weight: 700;
-  min-width: 200px;
-  border-bottom: 2px solid #e2e8f0;
-}
-
-.schema-badge {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 3px;
-  letter-spacing: 0.05em;
-}
-
-.schema-badge.source {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.schema-badge.target {
-  background: #dcfce7;
-  color: #15803d;
-}
-</style>
