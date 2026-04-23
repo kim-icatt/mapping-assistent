@@ -39,7 +39,7 @@ defineExpose({ nodes })
       <p>Laad een bron- en doelschema om te beginnen met koppelen.</p>
     </div>
 
-    <VueFlow v-else :nodes="nodes" :edges="[]" fit-view-on-init>
+    <VueFlow v-else :nodes="nodes" :edges="[]" fit-view-on-init :nodes-draggable="false">
       <template #node-veldKnooppunt="nodeProps">
         <VeldKnooppunt :data="nodeProps.data" />
       </template>
