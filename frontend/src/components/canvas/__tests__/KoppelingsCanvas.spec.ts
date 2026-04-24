@@ -62,7 +62,7 @@ describe('KoppelingsCanvas', () => {
     await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
 
     expect(wrapper.emitted('FieldMappingCreated')).toBeTruthy()
-    expect(wrapper.emitted('FieldMappingCreated')![0][0]).toMatchObject({
+    expect(wrapper.emitted('FieldMappingCreated')![0]![0]).toMatchObject({
       sourceFieldId: 'src-1',
       targetFieldId: 'tgt-1',
     })
@@ -97,5 +97,27 @@ describe('KoppelingsCanvas', () => {
 
     expect(store.mappings).toHaveLength(1)
     expect(wrapper.emitted('FieldMappingCreated')).toBeFalsy()
+  })
+
+  it('clicking target with no source selected does nothing', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+
+    expect(store.mappings).toHaveLength(0)
+    expect(wrapper.emitted('FieldMappingCreated')).toBeFalsy()
+  })
+
+  it('resets the warning timer when already-mapped source is clicked again', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+
+    // click already-mapped source twice — exercises the clearTimeout(warningTimer) branch
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="mapping-warning"]').exists()).toBe(true)
   })
 })

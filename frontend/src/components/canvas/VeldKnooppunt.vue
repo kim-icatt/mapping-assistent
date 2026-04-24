@@ -14,6 +14,8 @@ const emit = defineEmits<{
   'field-click': [fieldId: string]
 }>()
 
+const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
+
 const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
   string:  { bg: 'bg-blue-50',   text: 'text-blue-600',   label: 'str'  },
   number:  { bg: 'bg-amber-50',  text: 'text-amber-600',  label: 'num'  },
@@ -22,10 +24,10 @@ const typeConfig: Record<string, { bg: string; text: string; label: string }> = 
   object:  { bg: 'bg-slate-100', text: 'text-slate-500',  label: 'obj'  },
   array:   { bg: 'bg-cyan-50',   text: 'text-cyan-600',   label: 'arr'  },
   enum:    { bg: 'bg-rose-50',   text: 'text-rose-600',   label: 'enum' },
-  unknown: { bg: 'bg-slate-100', text: 'text-slate-400',  label: '?'    },
+  unknown: FALLBACK_TYPE,
 }
 
-const tc = typeConfig[props.data.dataType] ?? typeConfig.unknown
+const tc: { bg: string; text: string; label: string } = typeConfig[props.data.dataType] ?? FALLBACK_TYPE
 </script>
 
 <template>

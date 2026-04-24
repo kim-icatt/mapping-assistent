@@ -13,8 +13,8 @@ describe('useMappings', () => {
     store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
 
     expect(store.mappings).toHaveLength(1)
-    expect(store.mappings[0].sourceFieldId).toBe('src-1')
-    expect(store.mappings[0].targetFieldId).toBe('tgt-1')
+    expect(store.mappings[0]!.sourceFieldId).toBe('src-1')
+    expect(store.mappings[0]!.targetFieldId).toBe('tgt-1')
   })
 
   it('assigns a unique id to each mapping', () => {
@@ -22,9 +22,9 @@ describe('useMappings', () => {
     store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
     store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })
 
-    expect(store.mappings[0].id).toBeTruthy()
-    expect(store.mappings[1].id).toBeTruthy()
-    expect(store.mappings[0].id).not.toBe(store.mappings[1].id)
+    expect(store.mappings[0]!.id).toBeTruthy()
+    expect(store.mappings[1]!.id).toBeTruthy()
+    expect(store.mappings[0]!.id).not.toBe(store.mappings[1]!.id)
   })
 
   it('returns the created FieldMapping from createMapping', () => {
