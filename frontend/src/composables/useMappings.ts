@@ -16,9 +16,11 @@ export const useMappings = defineStore('mappings', () => {
     sourceFieldId: string
     targetFieldId: string
   }): FieldMapping | null {
-    if (hasMapping(sourceFieldId)) {
-      return null
-    }
+    // Prevent exact duplicate pairs only
+    const isDuplicate = mappings.value.some(
+      (m) => m.sourceFieldId === sourceFieldId && m.targetFieldId === targetFieldId,
+    )
+    if (isDuplicate) return null
 
     const mapping: FieldMapping = {
       id: crypto.randomUUID(),
@@ -32,5 +34,9 @@ export const useMappings = defineStore('mappings', () => {
     return mapping
   }
 
-  return { mappings, hasMapping, createMapping }
+  function removeMapping(id: string): void {
+    mappings.value = mappings.value.filter((m) => m.id !== id)
+  }
+
+  return { mappings, hasMapping, createMapping, removeMapping }
 })

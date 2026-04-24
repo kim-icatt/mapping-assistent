@@ -15,26 +15,28 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   FieldMappingCreated: [payload: { sourceFieldId: string; targetFieldId: string }]
+  FieldMappingRemoved: [payload: { sourceFieldId: string; targetFieldId: string }]
 }>()
 
 const mappingsStore = useMappings()
 const selectedSourceId = ref<string | null>(null)
-const warningSourceId = ref<string | null>(null)
-let warningTimer: ReturnType<typeof setTimeout> | null = null
+const pendingDeleteId = ref<string | null>(null)
 
 const isEmpty = computed(() => props.sourceFields.length === 0 && props.targetFields.length === 0)
 
+const pendingDeleteMapping = computed(() =>
+  pendingDeleteId.value ? mappingsStore.mappings.find((m) => m.id === pendingDeleteId.value) ?? null : null,
+)
+
+function fieldName(id: string): string {
+  return (
+    props.sourceFields.find((f) => f.id === id)?.name ??
+    props.targetFields.find((f) => f.id === id)?.name ??
+    id
+  )
+}
+
 function onSourceFieldClick(fieldId: string) {
-  if (mappingsStore.hasMapping(fieldId)) {
-    warningSourceId.value = fieldId
-    selectedSourceId.value = null
-    if (warningTimer) clearTimeout(warningTimer)
-    warningTimer = setTimeout(() => {
-      warningSourceId.value = null
-    }, 3000)
-    return
-  }
-  warningSourceId.value = null
   selectedSourceId.value = selectedSourceId.value === fieldId ? null : fieldId
 }
 
@@ -54,6 +56,22 @@ function onTargetFieldClick(fieldId: string) {
   }
 
   selectedSourceId.value = null
+}
+
+function onDeleteRequested(mappingId: string) {
+  pendingDeleteId.value = mappingId
+}
+
+function confirmDelete() {
+  if (!pendingDeleteMapping.value) return
+  const { sourceFieldId, targetFieldId } = pendingDeleteMapping.value
+  mappingsStore.removeMapping(pendingDeleteMapping.value.id)
+  emit('FieldMappingRemoved', { sourceFieldId, targetFieldId })
+  pendingDeleteId.value = null
+}
+
+function cancelDelete() {
+  pendingDeleteId.value = null
 }
 </script>
 
@@ -108,17 +126,34 @@ function onTargetFieldClick(fieldId: string) {
       </div>
 
       <!-- SVG connection line overlay -->
-      <ConnectionLines />
-    </div>
+      <ConnectionLines @delete-requested="onDeleteRequested" />
 
-    <!-- Already-mapped warning -->
-    <div
-      v-if="warningSourceId"
-      data-testid="mapping-warning"
-      role="alert"
-      class="mx-3 mb-2 px-3 py-1 text-xs rounded bg-amber-50 text-amber-700"
-    >
-      Dit bronveld is al gekoppeld. Verwijder de bestaande koppeling om opnieuw te koppelen.
+      <!-- Delete confirmation overlay -->
+      <div
+        v-if="pendingDeleteMapping"
+        class="absolute inset-0 flex items-center justify-center bg-black/20 z-10"
+        data-testid="delete-confirmation"
+      >
+        <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-sm w-full mx-4">
+          <p class="text-sm text-slate-700 mb-4">
+            Verwijder koppeling van
+            <span class="font-mono font-semibold text-slate-900">{{ fieldName(pendingDeleteMapping.sourceFieldId) }}</span>
+            naar
+            <span class="font-mono font-semibold text-slate-900">{{ fieldName(pendingDeleteMapping.targetFieldId) }}</span>?
+          </p>
+          <div class="flex justify-end gap-2">
+            <button
+              class="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded"
+              @click="cancelDelete"
+            >Annuleren</button>
+            <button
+              class="px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded"
+              data-testid="confirm-delete"
+              @click="confirmDelete"
+            >Verwijderen</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
