@@ -69,7 +69,7 @@ function onTargetFieldClick(fieldId: string) {
     </div>
 
     <!-- Two-panel layout -->
-    <div v-else class="relative flex-1 flex overflow-hidden gap-px">
+    <div v-else class="relative flex-1 flex overflow-hidden gap-8">
       <!-- Source column -->
       <div
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
