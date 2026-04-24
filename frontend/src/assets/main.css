@@ -1,35 +1,31 @@
-@import './base.css';
+@import "tailwindcss";
 
+@theme {
+  --color-background: hsl(225, 25%, 96%);
+  --color-foreground: hsl(224, 30%, 14%);
+  --color-card: hsl(0, 0%, 100%);
+  --color-border: hsl(225, 15%, 87%);
+  --color-muted: hsl(225, 18%, 93%);
+  --color-muted-foreground: hsl(224, 10%, 48%);
+  --color-source: hsl(230, 55%, 28%);
+  --color-destination: hsl(168, 55%, 38%);
+  --color-destructive: hsl(0, 68%, 52%);
+
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+html,
+body,
 #app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-weight: normal;
+  height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
-a,
-.green {
-  text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
-  transition: 0.4s;
-  padding: 3px;
-}
-
-@media (hover: hover) {
-  a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
-  }
-}
-
-@media (min-width: 1024px) {
-  body {
-    display: flex;
-    place-items: center;
-  }
-
-  #app {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
-  }
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
 }
