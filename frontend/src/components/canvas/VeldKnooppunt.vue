@@ -4,8 +4,14 @@ const props = defineProps<{
     name: string
     dataType: string
     required: boolean
-    side?: 'source' | 'target'
   }
+  fieldId: string
+  side: 'source' | 'target'
+  selected?: boolean
+}>()
+
+const emit = defineEmits<{
+  'field-click': [fieldId: string]
 }>()
 
 const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
@@ -24,11 +30,18 @@ const tc = typeConfig[props.data.dataType] ?? typeConfig.unknown
 
 <template>
   <div
-    class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm transition-colors hover:bg-slate-50 group cursor-default"
+    :data-field-id="fieldId"
+    :data-field-side="side"
+    :aria-selected="selected || undefined"
+    :class="[
+      'w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm transition-colors group cursor-pointer',
+      selected ? 'bg-blue-50 ring-1 ring-blue-300 ring-inset' : 'hover:bg-slate-50',
+    ]"
     :aria-label="`${props.data.name}, ${props.data.dataType}${props.data.required ? ', verplicht' : ''}`"
+    @click="emit('field-click', fieldId)"
   >
     <!-- Left dot indicator -->
-    <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
+    <span :class="['shrink-0 w-1.5 h-1.5 rounded-full', selected ? 'bg-blue-400' : 'bg-slate-200']" />
 
     <!-- Field name (monospace) -->
     <span class="font-mono truncate flex-1 text-slate-800 font-medium text-[13px]">{{ props.data.name }}</span>
