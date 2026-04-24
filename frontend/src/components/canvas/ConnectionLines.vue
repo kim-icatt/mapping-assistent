@@ -22,10 +22,6 @@ const lines = ref<LineCoords[]>([])
 const svgRef = ref<SVGSVGElement | null>(null)
 const hoveredLineId = ref<string | null>(null)
 
-function midpoint(line: LineCoords) {
-  return { x: (line.x1 + line.x2) / 2, y: (line.y1 + line.y2) / 2 }
-}
-
 function bezierPath(line: LineCoords): string {
   const dx = (line.x2 - line.x1) * 0.4
   return `M ${line.x1} ${line.y1} C ${line.x1 + dx} ${line.y1}, ${line.x2 - dx} ${line.y2}, ${line.x2} ${line.y2}`
@@ -34,7 +30,6 @@ function bezierPath(line: LineCoords): string {
 const linesWithMeta = computed(() =>
   lines.value.map((line) => ({
     ...line,
-    mid: midpoint(line),
     path: bezierPath(line),
     hovered: line.id === hoveredLineId.value,
   })),
@@ -111,11 +106,13 @@ onUnmounted(() => {
     <g
       v-for="line in linesWithMeta"
       :key="line.id"
-      style="pointer-events: auto; cursor: default"
+      style="pointer-events: auto; cursor: pointer"
+      data-testid="connection-line-group"
       @mouseenter="hoveredLineId = line.id"
       @mouseleave="hoveredLineId = null"
+      @click.stop="emit('delete-requested', line.id)"
     >
-      <!-- Wider invisible hit area so thin lines are easy to hover -->
+      <!-- Wider invisible hit area so thin lines are easy to hover and click -->
       <path :d="line.path" fill="none" stroke="transparent" stroke-width="16" />
 
       <!-- Visible line -->
@@ -131,25 +128,6 @@ onUnmounted(() => {
       <!-- Endpoint dots -->
       <circle :cx="line.x1" :cy="line.y1" r="4" :fill="line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.hovered ? 1 : 0.7" />
       <circle :cx="line.x2" :cy="line.y2" r="4" :fill="line.hovered ? '#4f46e5' : '#6366f1'" :fill-opacity="line.hovered ? 1 : 0.7" />
-
-      <!-- Delete button — shown on hover at the bezier midpoint -->
-      <g
-        v-if="line.hovered"
-        style="pointer-events: auto; cursor: pointer"
-        data-testid="delete-button"
-        @click.stop="emit('delete-requested', line.id)"
-      >
-        <circle :cx="line.mid.x" :cy="line.mid.y" r="11" fill="white" stroke="#ef4444" stroke-width="1.5" />
-        <text
-          :x="line.mid.x"
-          :y="line.mid.y"
-          text-anchor="middle"
-          dominant-baseline="central"
-          font-size="15"
-          fill="#ef4444"
-          style="user-select: none"
-        >×</text>
-      </g>
     </g>
   </svg>
 </template>
