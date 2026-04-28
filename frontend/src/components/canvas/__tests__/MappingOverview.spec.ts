@@ -49,46 +49,45 @@ describe('MappingOverview', () => {
     expect(row.text()).toContain('date')
   })
 
-  // Scenario: Required field and maxLength visible in row
-  it('shows a required marker when the target field is required', async () => {
-    const wrapper = mountOverview()
-    const store = useMappings()
-    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.find('[data-testid="req-badge"]').exists()).toBe(true)
-  })
-
-  it('shows maxLength when defined on the target field', async () => {
-    const wrapper = mountOverview()
-    const store = useMappings()
-    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
-    await wrapper.vm.$nextTick()
-
-    expect(wrapper.text()).toContain('max 36')
-  })
-
-  // Scenario: Remove mapping via cross
-  it('removes the mapping row when × is clicked', async () => {
+  // Scenario: Remove mapping via cross — confirmation dialog
+  it('shows a confirmation dialog when × is clicked', async () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('zaakId')
+    expect(wrapper.text()).toContain('startdatum')
+  })
+
+  it('removes the mapping row when confirmed', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(wrapper.findAll('[data-testid="mapping-row"]')).toHaveLength(0)
     expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
   })
 
-  it('emits FieldMappingRemoved when × is clicked', async () => {
+  it('emits FieldMappingRemoved when confirmed', async () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
 
     expect(wrapper.emitted('FieldMappingRemoved')).toBeTruthy()
     expect(wrapper.emitted('FieldMappingRemoved')![0]![0]).toMatchObject({
@@ -97,14 +96,33 @@ describe('MappingOverview', () => {
     })
   })
 
-  it('removes the mapping from the store when × is clicked', async () => {
+  it('removes the mapping from the store when confirmed', async () => {
     const wrapper = mountOverview()
     const store = useMappings()
     store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
     await wrapper.vm.$nextTick()
 
     await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+    await wrapper.find('[data-testid="confirm-delete"]').trigger('click')
 
     expect(store.mappings).toHaveLength(0)
+  })
+
+  it('keeps the mapping when cancelled', async () => {
+    const wrapper = mountOverview()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="remove-mapping"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const dialog = wrapper.find('[data-testid="delete-confirmation"]')
+    await dialog.find('button').trigger('click') // Annuleren
+    await wrapper.vm.$nextTick()
+
+    expect(store.mappings).toHaveLength(1)
+    expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(false)
   })
 })
