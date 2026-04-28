@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import KoppelingsCanvas from '../KoppelingsCanvas.vue'
+import MappingCanvas from '../MappingCanvas.vue'
 import { useMappings } from '@/composables/useMappings'
 import type { SchemaField } from '@/types'
 
@@ -16,7 +16,7 @@ const targetFields: SchemaField[] = [
 ]
 
 function mountCanvas() {
-  return mount(KoppelingsCanvas, {
+  return mount(MappingCanvas, {
     global: { plugins: [createPinia()] },
     props: { sourceFields, targetFields },
   })
@@ -26,34 +26,34 @@ beforeEach(() => {
   setActivePinia(createPinia())
 })
 
-describe('KoppelingsCanvas', () => {
-  // Scenario: Lege staat zonder geladen schema's
-  it("toont een lege staat als er geen schema's zijn geladen", () => {
-    const wrapper = mount(KoppelingsCanvas, {
+describe('MappingCanvas', () => {
+  // Scenario: Empty state without loaded schemas
+  it("shows an empty state when no schemas are loaded", () => {
+    const wrapper = mount(MappingCanvas, {
       global: { plugins: [createPinia()] },
       props: { sourceFields: [], targetFields: [] },
     })
     expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
   })
 
-  it("verbergt de lege staat als er schema-velden zijn", () => {
+  it("hides the empty state when schema fields are present", () => {
     const wrapper = mountCanvas()
     expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
   })
 
-  // Scenario: Bronveldknooppunten zichtbaar na laden bronschema
-  it('toont alle bronvelden in het bronpaneel', () => {
+  // Scenario: Source field nodes visible after loading source schema
+  it('shows all source fields in the source panel', () => {
     const wrapper = mountCanvas()
-    const sourceKolom = wrapper.find('[data-testid="source-kolom"]')
-    expect(sourceKolom.text()).toContain('zaakId')
-    expect(sourceKolom.text()).toContain('omschrijving')
+    const sourceColumn = wrapper.find('[data-testid="source-column"]')
+    expect(sourceColumn.text()).toContain('zaakId')
+    expect(sourceColumn.text()).toContain('omschrijving')
   })
 
-  // Scenario: Doelveldknooppunten zichtbaar na laden doelschema
-  it('toont alle doelvelden in het doelpaneel', () => {
+  // Scenario: Target field nodes visible after loading target schema
+  it('shows all target fields in the target panel', () => {
     const wrapper = mountCanvas()
-    const targetKolom = wrapper.find('[data-testid="target-kolom"]')
-    expect(targetKolom.text()).toContain('uuid')
+    const targetColumn = wrapper.find('[data-testid="target-column"]')
+    expect(targetColumn.text()).toContain('uuid')
   })
 
   // Scenario: Select source field and map to target field
@@ -145,7 +145,7 @@ describe('KoppelingsCanvas', () => {
     expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(false)
   })
 
-  it('cancels delete and keeps the mapping when Annuleren is clicked', async () => {
+  it('cancels delete and keeps the mapping when cancel is clicked', async () => {
     const wrapper = mountCanvas()
     const store = useMappings()
     const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!

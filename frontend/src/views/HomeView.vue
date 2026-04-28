@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import KoppelingsCanvas from '@/components/canvas/KoppelingsCanvas.vue'
+import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import type { SchemaField } from '@/types'
 
 const sourceFields: SchemaField[] = [
@@ -20,7 +20,7 @@ const targetFields: SchemaField[] = [
 
 <template>
   <main style="height: 100%">
-    <KoppelingsCanvas
+    <MappingCanvas
       :source-fields="sourceFields"
       :target-fields="targetFields"
       source-label="e-Suite"

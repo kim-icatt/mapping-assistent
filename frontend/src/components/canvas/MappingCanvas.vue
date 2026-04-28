@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { SchemaField } from '@/types'
-import VeldKnooppunt from './VeldKnooppunt.vue'
-import SchemaKolomHeader from './SchemaKolomHeader.vue'
+import FieldNode from './FieldNode.vue'
+import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
 import { useMappings } from '@/composables/useMappings'
 
@@ -91,11 +91,11 @@ function cancelDelete() {
       <!-- Source column -->
       <div
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
-        data-testid="source-kolom"
+        data-testid="source-column"
       >
-        <SchemaKolomHeader v-if="sourceLabel" :data="{ label: sourceLabel, side: 'source' }" />
+        <SchemaColumnHeader v-if="sourceLabel" :data="{ label: sourceLabel, side: 'source' }" />
         <div class="flex-1 overflow-y-auto" data-scroll-container>
-          <VeldKnooppunt
+          <FieldNode
             v-for="field in sourceFields"
             :key="field.id"
             :data="{ name: field.name, dataType: field.dataType, required: field.required }"
@@ -110,11 +110,11 @@ function cancelDelete() {
       <!-- Target column -->
       <div
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
-        data-testid="target-kolom"
+        data-testid="target-column"
       >
-        <SchemaKolomHeader v-if="targetLabel" :data="{ label: targetLabel, side: 'target' }" />
+        <SchemaColumnHeader v-if="targetLabel" :data="{ label: targetLabel, side: 'target' }" />
         <div class="flex-1 overflow-y-auto" data-scroll-container>
-          <VeldKnooppunt
+          <FieldNode
             v-for="field in targetFields"
             :key="field.id"
             :data="{ name: field.name, dataType: field.dataType, required: field.required }"
