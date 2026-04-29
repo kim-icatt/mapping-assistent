@@ -256,4 +256,13 @@ describe('Source schema upload UI', () => {
     expect(wrapper.emitted('SourceFileSelected')).toBeTruthy()
     expect(wrapper.emitted('SourceFileSelected')![0]![0]).toBe(file)
   })
+
+  it('emits SourceUrlEntered when a URL is submitted', async () => {
+    const wrapper = mountNoSource()
+    await wrapper.find('[data-testid="source-url-input"]').setValue('https://example.com/api.json')
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.emitted('SourceUrlEntered')).toBeTruthy()
+    expect(wrapper.emitted('SourceUrlEntered')![0]![0]).toBe('https://example.com/api.json')
+  })
 })

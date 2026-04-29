@@ -6,12 +6,16 @@ import { useSourceSchema } from '@/composables/useSourceSchema'
 import type { SchemaField } from '@/types'
 import { ref } from 'vue'
 
-const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile } = useSourceSchema()
+const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile, loadFromUrl } = useSourceSchema()
 
 const targetFields = ref<SchemaField[]>([])
 
 async function onSourceFileSelected(file: File) {
   await loadFromFile(file)
+}
+
+async function onSourceUrlEntered(url: string) {
+  await loadFromUrl(url)
 }
 </script>
 
@@ -27,6 +31,7 @@ async function onSourceFileSelected(file: File) {
         :source-label="sourceSchemaName || 'Bronschema'"
         target-label="Doelschema"
         @source-file-selected="onSourceFileSelected"
+        @source-url-entered="onSourceUrlEntered"
       />
     </div>
     <div class="w-80 shrink-0">

@@ -17,6 +17,7 @@ const emit = defineEmits<{
   FieldMappingCreated: [payload: { sourceFieldId: string; targetFieldId: string }]
   FieldMappingRemoved: [payload: { sourceFieldId: string; targetFieldId: string }]
   SourceFileSelected: [file: File]
+  SourceUrlEntered: [url: string]
 }>()
 
 const mappingsStore = useMappings()
@@ -90,6 +91,13 @@ function onSourceFileChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (file) emit('SourceFileSelected', file)
 }
+
+const sourceUrlInput = ref('https://cors.redoc.ly/https://esuite-data-extractie-gcp2.esuite-development.net/q/openapi')
+
+function onSourceUrlSubmit() {
+  const url = sourceUrlInput.value.trim()
+  if (url) emit('SourceUrlEntered', url)
+}
 </script>
 
 <template>
@@ -106,10 +114,12 @@ function onSourceFileChange(event: Event) {
         <!-- Upload UI when no source schema loaded -->
         <div
           v-if="sourceFields.length === 0"
-          class="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center"
+          class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
           data-testid="source-upload"
         >
           <p class="text-sm text-slate-400">Laad een bronschema (OpenAPI YAML of JSON)</p>
+
+          <!-- File picker -->
           <label class="cursor-pointer px-3 py-1.5 text-sm rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
             Bestand kiezen
             <input
@@ -120,6 +130,26 @@ function onSourceFileChange(event: Event) {
               @change="onSourceFileChange"
             />
           </label>
+
+          <span class="text-xs text-slate-300">of</span>
+
+          <!-- URL input -->
+          <form class="flex gap-2 w-full max-w-xs" @submit.prevent="onSourceUrlSubmit">
+            <input
+              v-model="sourceUrlInput"
+              type="url"
+              placeholder="https://api.example.com/openapi.json"
+              class="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
+              data-testid="source-url-input"
+            />
+            <button
+              type="submit"
+              class="shrink-0 px-2 py-1.5 text-xs rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+              data-testid="source-url-submit"
+            >
+              Laden
+            </button>
+          </form>
         </div>
 
         <!-- Field nodes -->
