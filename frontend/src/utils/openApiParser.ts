@@ -16,8 +16,29 @@ function mapType(prop: Record<string, unknown>): DataType {
 function resolveRef(ref: string, schemas: Record<string, unknown>): Record<string, unknown> | null {
   // Handles local $ref: '#/components/schemas/Foo' or '#/definitions/Foo'
   const parts = ref.split('/')
-  const name = parts[parts.length - 1]
+  const name = parts[parts.length - 1] as string | undefined
+  if (!name) return null
   return (schemas[name] as Record<string, unknown>) ?? null
+}
+
+// Returns children for a property that is an object, $ref, or array-of-objects
+function childrenFor(
+  p: Record<string, unknown>,
+  allSchemas: Record<string, unknown>,
+  path: string,
+): SchemaField[] | undefined {
+  if (p.$ref && typeof p.$ref === 'string') {
+    const refSchema = resolveRef(p.$ref, allSchemas)
+    if (refSchema) return extractChildren(refSchema, allSchemas, path)
+  }
+  if (p.type === 'object' && p.properties) {
+    return extractChildren(p, allSchemas, path)
+  }
+  if (p.type === 'array') {
+    const items = p.items as Record<string, unknown> | undefined
+    if (items) return childrenFor(items, allSchemas, path)
+  }
+  return undefined
 }
 
 function extractChildren(
@@ -34,29 +55,26 @@ function extractChildren(
   for (const [propName, prop] of Object.entries(properties)) {
     const p = prop as Record<string, unknown>
     const path = `${parentPath}.${propName}`
-    let resolvedProp = p
-    let nestedChildren: SchemaField[] | undefined
 
+    // Resolve $ref at this level so mapType and description come from the target schema
+    let display = p
     if (p.$ref && typeof p.$ref === 'string') {
       const refSchema = resolveRef(p.$ref, allSchemas)
-      if (refSchema) {
-        resolvedProp = { ...refSchema, type: 'object' }
-        nestedChildren = extractChildren(refSchema, allSchemas, path)
-      }
-    } else if (p.type === 'object' && p.properties) {
-      nestedChildren = extractChildren(p, allSchemas, path)
+      if (refSchema) display = { ...refSchema, type: 'object' }
     }
 
     const field: SchemaField = {
       id: path,
       name: propName,
       path,
-      dataType: mapType(resolvedProp),
+      dataType: mapType(display),
       required: required.includes(propName),
-      description: resolvedProp.description as string | undefined,
-      maxLength: resolvedProp.maxLength as number | undefined,
+      description: display.description as string | undefined,
+      maxLength: display.maxLength as number | undefined,
     }
-    if (nestedChildren) field.children = nestedChildren
+
+    const nested = childrenFor(p, allSchemas, path)
+    if (nested) field.children = nested
 
     children.push(field)
   }
@@ -95,28 +113,24 @@ export function parseOpenApiToFields(spec: unknown): SchemaField[] {
       const p = prop as Record<string, unknown>
       const path = multiSchema ? `${schemaName}.${propName}` : propName
 
-      let resolvedProp = p
-      let children: SchemaField[] | undefined
-
+      // Resolve $ref at this level so display type/description come from target schema
+      let display = p
       if (p.$ref && typeof p.$ref === 'string') {
         const refSchema = resolveRef(p.$ref, schemas)
-        if (refSchema) {
-          resolvedProp = { ...refSchema, type: 'object' }
-          children = extractChildren(refSchema, schemas, path)
-        }
-      } else if (p.type === 'object' && p.properties) {
-        children = extractChildren(p, schemas, path)
+        if (refSchema) display = { ...refSchema, type: 'object' }
       }
 
       const field: SchemaField = {
         id: path,
         name: propName,
         path,
-        dataType: mapType(resolvedProp),
+        dataType: mapType(display),
         required: required.includes(propName),
-        description: resolvedProp.description as string | undefined,
-        maxLength: resolvedProp.maxLength as number | undefined,
+        description: display.description as string | undefined,
+        maxLength: display.maxLength as number | undefined,
       }
+
+      const children = childrenFor(p, schemas, path)
       if (children) field.children = children
 
       fields.push(field)

@@ -133,6 +133,67 @@ describe('parseOpenApiToFields', () => {
     expect(adres?.children?.find((c) => c.name === 'straat')?.dataType).toBe('string')
   })
 
+  it('resolves array items with $ref into children', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Order: {
+            type: 'object',
+            properties: {
+              lines: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/OrderLine' },
+              },
+            },
+          },
+          OrderLine: {
+            type: 'object',
+            properties: {
+              product: { type: 'string' },
+              quantity: { type: 'integer' },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const lines = fields.find((f) => f.name === 'lines')
+    expect(lines?.dataType).toBe('array')
+    expect(lines?.children).toHaveLength(2)
+    expect(lines?.children?.find((c) => c.name === 'product')).toBeDefined()
+  })
+
+  it('resolves inline array items with object properties into children', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Invoice: {
+            type: 'object',
+            properties: {
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    sku: { type: 'string' },
+                    price: { type: 'number' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const items = fields.find((f) => f.name === 'items')
+    expect(items?.dataType).toBe('array')
+    expect(items?.children).toHaveLength(2)
+    expect(items?.children?.find((c) => c.name === 'sku')).toBeDefined()
+  })
+
   it('resolves inline object properties into children', () => {
     const spec = {
       openapi: '3.0.0',
