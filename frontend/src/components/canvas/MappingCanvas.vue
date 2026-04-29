@@ -106,7 +106,7 @@ function onTargetFileChange(event: Event) {
   if (file) emit('TargetFileSelected', file)
 }
 
-const targetUrlInput = ref('')
+const targetUrlInput = ref('https://openzaak.dev.kiss-demo.nl/zaken/api/v1/openapi.json')
 
 function onTargetUrlSubmit() {
   const url = targetUrlInput.value.trim()
