@@ -1,0 +1,154 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import type { SchemaField } from '@/types'
+import { useMappings } from '@/composables/useMappings'
+
+const props = defineProps<{
+  sourceFields: SchemaField[]
+  targetFields: SchemaField[]
+}>()
+
+const emit = defineEmits<{
+  FieldMappingRemoved: [payload: { sourceFieldId: string; targetFieldId: string }]
+}>()
+
+const store = useMappings()
+const pendingDeleteId = ref<string | null>(null)
+
+const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
+const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
+  string:  { bg: 'bg-blue-50',    text: 'text-blue-600',   label: 'str'  },
+  number:  { bg: 'bg-amber-50',   text: 'text-amber-600',  label: 'num'  },
+  boolean: { bg: 'bg-purple-50',  text: 'text-purple-600', label: 'bool' },
+  date:    { bg: 'bg-emerald-50', text: 'text-emerald-600',label: 'date' },
+  object:  { bg: 'bg-slate-100',  text: 'text-slate-500',  label: 'obj'  },
+  array:   { bg: 'bg-cyan-50',    text: 'text-cyan-600',   label: 'arr'  },
+  unknown: FALLBACK_TYPE,
+}
+
+function typeOf(dataType: string) {
+  return typeConfig[dataType] ?? FALLBACK_TYPE
+}
+
+const rows = computed(() =>
+  store.mappings.map((m) => ({
+    id: m.id,
+    sourceFieldId: m.sourceFieldId,
+    targetFieldId: m.targetFieldId,
+    source: props.sourceFields.find((f) => f.id === m.sourceFieldId),
+    target: props.targetFields.find((f) => f.id === m.targetFieldId),
+  })),
+)
+
+const pendingDeleteRow = computed(() =>
+  pendingDeleteId.value ? rows.value.find((r) => r.id === pendingDeleteId.value) ?? null : null,
+)
+
+function requestDelete(mappingId: string) {
+  pendingDeleteId.value = mappingId
+}
+
+function confirmDelete() {
+  if (!pendingDeleteRow.value) return
+  const { sourceFieldId, targetFieldId } = pendingDeleteRow.value
+  store.removeMapping(pendingDeleteRow.value.id)
+  emit('FieldMappingRemoved', { sourceFieldId, targetFieldId })
+  pendingDeleteId.value = null
+}
+
+function cancelDelete() {
+  pendingDeleteId.value = null
+}
+</script>
+
+<template>
+  <div class="flex flex-col bg-white border border-slate-200 rounded-sm overflow-hidden">
+    <!-- Header -->
+    <div class="px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
+      <span class="text-sm font-bold text-slate-700">Koppelingen</span>
+      <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
+        {{ store.mappings.length }}
+      </span>
+    </div>
+
+    <!-- Empty state -->
+    <div
+      v-if="rows.length === 0"
+      class="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center text-slate-400 text-sm"
+      data-testid="empty-state"
+    >
+      <p>Nog geen koppelingen aangemaakt.</p>
+      <p class="mt-1">Selecteer een bronveld en een doelveld om te beginnen.</p>
+    </div>
+
+    <!-- Mapping rows -->
+    <div v-else class="flex-1 overflow-y-auto divide-y divide-slate-100">
+      <div
+        v-for="row in rows"
+        :key="row.id"
+        class="flex items-center gap-2 px-3 py-2 text-sm"
+        data-testid="mapping-row"
+      >
+        <!-- Source field -->
+        <div class="flex-1 min-w-0 flex items-center gap-1.5">
+          <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
+            {{ row.source?.name ?? row.sourceFieldId }}
+          </span>
+          <span
+            v-if="row.source"
+            :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.source.dataType).bg, typeOf(row.source.dataType).text]"
+          >{{ typeOf(row.source.dataType).label }}</span>
+        </div>
+
+        <!-- Arrow -->
+        <span class="text-slate-300 shrink-0">→</span>
+
+        <!-- Target field -->
+        <div class="flex-1 min-w-0 flex items-center gap-1.5">
+          <span class="font-mono text-slate-800 truncate text-[13px] flex-1 min-w-0">
+            {{ row.target?.name ?? row.targetFieldId }}
+          </span>
+          <span
+            v-if="row.target"
+            :class="['shrink-0 text-[11px] leading-none px-1.5 py-0.5 rounded font-medium', typeOf(row.target.dataType).bg, typeOf(row.target.dataType).text]"
+          >{{ typeOf(row.target.dataType).label }}</span>
+        </div>
+
+        <!-- Remove button -->
+        <button
+          class="shrink-0 text-slate-300 hover:text-red-500 transition-colors font-bold px-1 leading-none"
+          data-testid="remove-mapping"
+          aria-label="Verwijder koppeling"
+          @click="requestDelete(row.id)"
+        >×</button>
+      </div>
+    </div>
+
+    <!-- Delete confirmation overlay -->
+    <div
+      v-if="pendingDeleteRow"
+      class="fixed inset-0 flex items-center justify-center bg-black/20 z-50"
+      data-testid="delete-confirmation"
+    >
+      <div class="bg-white rounded-lg shadow-lg px-6 py-5 max-w-xs w-full mx-4">
+        <p class="text-sm text-slate-700 mb-4">
+          Verwijder koppeling van
+          <span class="font-mono font-semibold text-slate-900">{{ pendingDeleteRow.source?.name ?? pendingDeleteRow.sourceFieldId }}</span>
+          naar
+          <span class="font-mono font-semibold text-slate-900">{{ pendingDeleteRow.target?.name ?? pendingDeleteRow.targetFieldId }}</span>?
+        </p>
+        <div class="flex justify-end gap-2">
+          <button
+            class="px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded"
+            @click="cancelDelete"
+          >Annuleren</button>
+          <button
+            class="px-3 py-1.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded"
+            data-testid="confirm-delete"
+            @click="confirmDelete"
+          >Verwijderen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
+import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import type { SchemaField } from '@/types'
 
 const sourceFields: SchemaField[] = [
@@ -11,7 +12,7 @@ const sourceFields: SchemaField[] = [
 ]
 
 const targetFields: SchemaField[] = [
-  { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true },
+  { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true, maxLength: 36 },
   { id: 'tgt-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
   { id: 'tgt-3', name: 'startdatum', path: 'startdatum', dataType: 'date', required: true },
   { id: 'tgt-4', name: 'status', path: 'status', dataType: 'string', required: true },
@@ -19,12 +20,20 @@ const targetFields: SchemaField[] = [
 </script>
 
 <template>
-  <main style="height: 100%">
-    <MappingCanvas
-      :source-fields="sourceFields"
-      :target-fields="targetFields"
-      source-label="e-Suite"
-      target-label="OpenZaak"
-    />
+  <main class="flex h-full gap-4 p-4 bg-slate-100 overflow-hidden">
+    <div class="flex-1 min-w-0">
+      <MappingCanvas
+        :source-fields="sourceFields"
+        :target-fields="targetFields"
+        source-label="e-Suite"
+        target-label="OpenZaak"
+      />
+    </div>
+    <div class="w-80 shrink-0">
+      <MappingOverview
+        :source-fields="sourceFields"
+        :target-fields="targetFields"
+      />
+    </div>
   </main>
 </template>
