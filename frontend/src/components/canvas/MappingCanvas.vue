@@ -24,6 +24,19 @@ const pendingDeleteId = ref<string | null>(null)
 
 const isEmpty = computed(() => props.sourceFields.length === 0 && props.targetFields.length === 0)
 
+const sourceCounter = computed(() => {
+  const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
+  return { mapped: mappedIds.size, total: props.sourceFields.length }
+})
+
+const targetCounter = computed(() => {
+  const mappedTargetIds = new Set(mappingsStore.mappings.map((m) => m.targetFieldId))
+  return {
+    mapped: props.targetFields.filter((f) => mappedTargetIds.has(f.id)).length,
+    total: props.targetFields.length,
+  }
+})
+
 const pendingDeleteMapping = computed(() =>
   pendingDeleteId.value ? mappingsStore.mappings.find((m) => m.id === pendingDeleteId.value) ?? null : null,
 )
@@ -93,7 +106,7 @@ function cancelDelete() {
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="source-column"
       >
-        <SchemaColumnHeader v-if="sourceLabel" :data="{ label: sourceLabel, side: 'source' }" />
+        <SchemaColumnHeader v-if="sourceLabel" :data="{ label: sourceLabel, side: 'source' }" :counter="sourceCounter" />
         <div class="flex-1 overflow-y-auto" data-scroll-container>
           <FieldNode
             v-for="field in sourceFields"
@@ -112,7 +125,7 @@ function cancelDelete() {
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="target-column"
       >
-        <SchemaColumnHeader v-if="targetLabel" :data="{ label: targetLabel, side: 'target' }" />
+        <SchemaColumnHeader v-if="targetLabel" :data="{ label: targetLabel, side: 'target' }" :counter="targetCounter" />
         <div class="flex-1 overflow-y-auto" data-scroll-container>
           <FieldNode
             v-for="field in targetFields"

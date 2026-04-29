@@ -4,6 +4,7 @@ const props = defineProps<{
     label: string
     side: 'source' | 'target'
   }
+  counter?: { mapped: number; total: number }
 }>()
 </script>
 
@@ -38,6 +39,17 @@ const props = defineProps<{
         : 'bg-emerald-100 text-emerald-700'"
     >
       {{ props.data.side === 'source' ? 'Bron' : 'Doel' }}
+    </span>
+
+    <!-- Coverage counter -->
+    <span
+      v-if="counter && counter.total > 0"
+      class="ml-auto text-[11px] text-slate-400 shrink-0"
+      data-testid="coverage-counter"
+    >
+      {{ counter.mapped }} van {{ counter.total }}
+      {{ props.data.side === 'source' ? 'bronvelden' : 'doelvelden' }}
+      gekoppeld
     </span>
   </div>
 </template>
