@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import type { SchemaField } from '@/types'
 import FieldNode from './FieldNode.vue'
+import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
 import { useMappings } from '@/composables/useMappings'
@@ -166,18 +167,14 @@ function onTargetUrlSubmit() {
           </form>
         </div>
 
-        <!-- Field nodes -->
-        <div v-else class="flex-1 overflow-y-auto" data-scroll-container>
-          <FieldNode
-            v-for="field in sourceFields"
-            :key="field.id"
-            :data="{ name: field.name, dataType: field.dataType, required: field.required }"
-            :fieldId="field.id"
-            side="source"
-            :selected="selectedSourceId === field.id"
-            @field-click="onSourceFieldClick"
-          />
-        </div>
+        <!-- Field tree -->
+        <SourceSchemaPanel
+          v-else
+          class="flex-1 overflow-y-auto"
+          data-scroll-container
+          :fields="sourceFields"
+          @field-click="onSourceFieldClick"
+        />
       </div>
 
       <!-- Target column -->
@@ -226,17 +223,14 @@ function onTargetUrlSubmit() {
           </form>
         </div>
 
-        <!-- Field nodes -->
-        <div v-else class="flex-1 overflow-y-auto" data-scroll-container>
-          <FieldNode
-            v-for="field in targetFields"
-            :key="field.id"
-            :data="{ name: field.name, dataType: field.dataType, required: field.required }"
-            :fieldId="field.id"
-            side="target"
-            @field-click="onTargetFieldClick"
-          />
-        </div>
+        <!-- Field tree -->
+        <SourceSchemaPanel
+          v-else
+          class="flex-1 overflow-y-auto"
+          data-scroll-container
+          :fields="targetFields"
+          @field-click="onTargetFieldClick"
+        />
       </div>
 
       <!-- SVG connection line overlay -->
