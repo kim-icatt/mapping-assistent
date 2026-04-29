@@ -18,6 +18,8 @@ const emit = defineEmits<{
   FieldMappingRemoved: [payload: { sourceFieldId: string; targetFieldId: string }]
   SourceFileSelected: [file: File]
   SourceUrlEntered: [url: string]
+  TargetFileSelected: [file: File]
+  TargetUrlEntered: [url: string]
 }>()
 
 const mappingsStore = useMappings()
@@ -98,6 +100,18 @@ function onSourceUrlSubmit() {
   const url = sourceUrlInput.value.trim()
   if (url) emit('SourceUrlEntered', url)
 }
+
+function onTargetFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) emit('TargetFileSelected', file)
+}
+
+const targetUrlInput = ref('')
+
+function onTargetUrlSubmit() {
+  const url = targetUrlInput.value.trim()
+  if (url) emit('TargetUrlEntered', url)
+}
 </script>
 
 <template>
@@ -172,7 +186,48 @@ function onSourceUrlSubmit() {
         data-testid="target-column"
       >
         <SchemaColumnHeader v-if="targetLabel" :data="{ label: targetLabel, side: 'target' }" :counter="targetCounter" />
-        <div class="flex-1 overflow-y-auto" data-scroll-container>
+
+        <!-- Upload UI when no target schema loaded -->
+        <div
+          v-if="targetFields.length === 0"
+          class="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center"
+          data-testid="target-upload"
+        >
+          <p class="text-sm text-slate-400">Laad een doelschema (OpenAPI YAML of JSON)</p>
+
+          <label class="cursor-pointer px-3 py-1.5 text-sm rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors">
+            Bestand kiezen
+            <input
+              type="file"
+              accept=".yaml,.yml,.json"
+              class="sr-only"
+              data-testid="target-file-input"
+              @change="onTargetFileChange"
+            />
+          </label>
+
+          <span class="text-xs text-slate-300">of</span>
+
+          <form class="flex gap-2 w-full max-w-xs" @submit.prevent="onTargetUrlSubmit">
+            <input
+              v-model="targetUrlInput"
+              type="url"
+              placeholder="https://api.example.com/openapi.json"
+              class="flex-1 min-w-0 text-xs border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-emerald-400"
+              data-testid="target-url-input"
+            />
+            <button
+              type="submit"
+              class="shrink-0 px-2 py-1.5 text-xs rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+              data-testid="target-url-submit"
+            >
+              Laden
+            </button>
+          </form>
+        </div>
+
+        <!-- Field nodes -->
+        <div v-else class="flex-1 overflow-y-auto" data-scroll-container>
           <FieldNode
             v-for="field in targetFields"
             :key="field.id"
