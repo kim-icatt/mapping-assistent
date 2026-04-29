@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import type { SchemaField } from '@/types'
 
 const props = defineProps<{
   fields: SchemaField[]
+  side?: 'source' | 'target'
 }>()
 
 const emit = defineEmits<{
@@ -39,6 +40,7 @@ const fieldCollapsed = ref<Record<string, boolean>>(
 
 function toggleGroup(name: string) {
   groupCollapsed.value = { ...groupCollapsed.value, [name]: !groupCollapsed.value[name] }
+  nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))
 }
 
 function isGroupExpanded(name: string) {
@@ -47,6 +49,7 @@ function isGroupExpanded(name: string) {
 
 function toggleField(fieldId: string) {
   fieldCollapsed.value = { ...fieldCollapsed.value, [fieldId]: !fieldCollapsed.value[fieldId] }
+  nextTick(() => window.dispatchEvent(new CustomEvent('schema-panel-toggle')))
 }
 
 function isFieldExpanded(fieldId: string) {
@@ -91,6 +94,7 @@ function tc(dataType: string) {
         <button
           v-if="hasNamedGroups"
           :data-testid="`schema-group-toggle-${group.name}`"
+          :data-anchor-group="`${side}:${group.name}`"
           class="w-full flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-left text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
           @click="toggleGroup(group.name)"
         >
@@ -108,6 +112,8 @@ function tc(dataType: string) {
             <template v-if="field.children && field.children.length > 0">
               <button
                 :data-testid="`field-toggle-${field.id}`"
+                :data-anchor-field="`${side}:${field.id}`"
+                :data-field-in-group="`${side}:${group.name}`"
                 class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm text-left hover:bg-slate-50 transition-colors cursor-pointer"
                 @click="toggleField(field.id)"
               >
@@ -132,6 +138,10 @@ function tc(dataType: string) {
                 <div
                   v-for="child in field.children"
                   :key="child.id"
+                  :data-field-id="child.id"
+                  :data-field-side="side"
+                  :data-child-of-field="`${side}:${field.id}`"
+                  :data-field-in-group="`${side}:${group.name}`"
                   class="w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50"
                   @click="emit('field-click', child.id)"
                 >
@@ -156,6 +166,8 @@ function tc(dataType: string) {
             <div
               v-else
               :data-field-id="field.id"
+              :data-field-side="side"
+              :data-field-in-group="`${side}:${group.name}`"
               class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50 transition-colors"
               @click="emit('field-click', field.id)"
             >
