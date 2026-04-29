@@ -10,7 +10,12 @@ export function useSourceSchema() {
   const isLoading = ref(false)
 
   function parseContent(content: string): void {
-    const spec = yaml.load(content)
+    let spec: unknown
+    try {
+      spec = yaml.load(content)
+    } catch {
+      throw new Error('Ongeldig bestand: geen geldige YAML, JSON of OpenAPI-spec')
+    }
     const parsed = parseOpenApiToFields(spec)
     const s = spec as Record<string, unknown>
     schemaName.value = (s.info as Record<string, unknown>)?.title as string ?? ''
