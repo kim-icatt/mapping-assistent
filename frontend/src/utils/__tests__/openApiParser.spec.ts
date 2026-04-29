@@ -102,4 +102,60 @@ describe('parseOpenApiToFields', () => {
   it('throws when spec is valid JSON but not an OpenAPI/Swagger document', () => {
     expect(() => parseOpenApiToFields({ foo: 'bar', data: [1, 2, 3] })).toThrow('openapi')
   })
+
+  // Scenario: Display nested $ref structure
+  it('resolves $ref properties into children on the parent field', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Zaak: {
+            type: 'object',
+            properties: {
+              adres: { $ref: '#/components/schemas/Adres' },
+            },
+          },
+          Adres: {
+            type: 'object',
+            properties: {
+              straat: { type: 'string' },
+              huisnummer: { type: 'integer' },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const adres = fields.find((f) => f.name === 'adres')
+    expect(adres).toBeDefined()
+    expect(adres?.dataType).toBe('object')
+    expect(adres?.children).toHaveLength(2)
+    expect(adres?.children?.find((c) => c.name === 'straat')?.dataType).toBe('string')
+  })
+
+  it('resolves inline object properties into children', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Item: {
+            type: 'object',
+            properties: {
+              meta: {
+                type: 'object',
+                properties: {
+                  key: { type: 'string' },
+                  value: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const meta = fields.find((f) => f.name === 'meta')
+    expect(meta?.children).toHaveLength(2)
+    expect(meta?.children?.find((c) => c.name === 'key')).toBeDefined()
+  })
 })
