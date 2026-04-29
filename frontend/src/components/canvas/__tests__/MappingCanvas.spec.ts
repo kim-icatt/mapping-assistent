@@ -22,6 +22,34 @@ function mountCanvas() {
   })
 }
 
+const coverageSourceFields: SchemaField[] = Array.from({ length: 15 }, (_, i) => ({
+  id: `src-${i + 1}`,
+  name: `srcField${i + 1}`,
+  path: `srcField${i + 1}`,
+  dataType: 'string' as const,
+  required: false,
+}))
+
+const coverageTargetFields: SchemaField[] = Array.from({ length: 8 }, (_, i) => ({
+  id: `tgt-${i + 1}`,
+  name: `tgtField${i + 1}`,
+  path: `tgtField${i + 1}`,
+  dataType: 'string' as const,
+  required: i < 5,
+}))
+
+function mountCoverageCanvas() {
+  return mount(MappingCanvas, {
+    global: { plugins: [createPinia()] },
+    props: {
+      sourceFields: coverageSourceFields,
+      targetFields: coverageTargetFields,
+      sourceLabel: 'Bron',
+      targetLabel: 'Doel',
+    },
+  })
+}
+
 beforeEach(() => {
   setActivePinia(createPinia())
 })
@@ -158,5 +186,43 @@ describe('MappingCanvas', () => {
 
     expect(store.mappings).toHaveLength(1)
     expect(wrapper.find('[data-testid="delete-confirmation"]').exists()).toBe(false)
+  })
+})
+
+describe('Coverage rate counters', () => {
+  // Scenario: Required target fields counter visible after loading schemas
+  it('shows "0 van 8 doelvelden gekoppeld" when no mappings exist', () => {
+    const wrapper = mountCoverageCanvas()
+    expect(wrapper.text()).toContain('0 van 8 doelvelden gekoppeld')
+  })
+
+  // Scenario: Source fields counter visible after loading schemas
+  it('shows "0 van 15 bronvelden gekoppeld" when no mappings exist', () => {
+    const wrapper = mountCoverageCanvas()
+    expect(wrapper.text()).toContain('0 van 15 bronvelden gekoppeld')
+  })
+
+  // Scenario: Counters updated after mapping a required target field
+  it('updates counters to 1 after mapping a source field to a required target field', async () => {
+    const wrapper = mountCoverageCanvas()
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('1 van 8 doelvelden gekoppeld')
+    expect(wrapper.text()).toContain('1 van 15 bronvelden gekoppeld')
+  })
+
+  // Scenario: Counters updated after removal
+  it('resets required target counter to 0 after removing the mapping', async () => {
+    const wrapper = mountCoverageCanvas()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    await wrapper.vm.$nextTick()
+
+    store.removeMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).toContain('0 van 8 doelvelden gekoppeld')
   })
 })

@@ -6,6 +6,7 @@ export interface SchemaField {
   path: string // dot-notation, e.g. "address.city"
   dataType: DataType
   required: boolean
+  maxLength?: number
   description?: string
   children?: SchemaField[]
 }
