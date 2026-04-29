@@ -16,13 +16,12 @@ const props = defineProps<{
 const emit = defineEmits<{
   FieldMappingCreated: [payload: { sourceFieldId: string; targetFieldId: string }]
   FieldMappingRemoved: [payload: { sourceFieldId: string; targetFieldId: string }]
+  SourceFileSelected: [file: File]
 }>()
 
 const mappingsStore = useMappings()
 const selectedSourceId = ref<string | null>(null)
 const pendingDeleteId = ref<string | null>(null)
-
-const isEmpty = computed(() => props.sourceFields.length === 0 && props.targetFields.length === 0)
 
 const sourceCounter = computed(() => {
   const mappedIds = new Set(mappingsStore.mappings.map((m) => m.sourceFieldId))
@@ -86,28 +85,45 @@ function confirmDelete() {
 function cancelDelete() {
   pendingDeleteId.value = null
 }
+
+function onSourceFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (file) emit('SourceFileSelected', file)
+}
 </script>
 
 <template>
   <div class="w-full h-full flex flex-col bg-slate-100">
-    <!-- Empty state -->
-    <div
-      v-if="isEmpty"
-      class="flex items-center justify-center h-full text-slate-400 text-sm"
-      data-testid="empty-state"
-    >
-      <p>Laad een bron- en doelschema om te beginnen met koppelen.</p>
-    </div>
-
     <!-- Two-panel layout -->
-    <div v-else class="relative flex-1 flex overflow-hidden gap-8">
+    <div class="relative flex-1 flex overflow-hidden gap-8">
       <!-- Source column -->
       <div
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="source-column"
       >
         <SchemaColumnHeader v-if="sourceLabel" :data="{ label: sourceLabel, side: 'source' }" :counter="sourceCounter" />
-        <div class="flex-1 overflow-y-auto" data-scroll-container>
+
+        <!-- Upload UI when no source schema loaded -->
+        <div
+          v-if="sourceFields.length === 0"
+          class="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center"
+          data-testid="source-upload"
+        >
+          <p class="text-sm text-slate-400">Laad een bronschema (OpenAPI YAML of JSON)</p>
+          <label class="cursor-pointer px-3 py-1.5 text-sm rounded bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors">
+            Bestand kiezen
+            <input
+              type="file"
+              accept=".yaml,.yml,.json"
+              class="sr-only"
+              data-testid="source-file-input"
+              @change="onSourceFileChange"
+            />
+          </label>
+        </div>
+
+        <!-- Field nodes -->
+        <div v-else class="flex-1 overflow-y-auto" data-scroll-container>
           <FieldNode
             v-for="field in sourceFields"
             :key="field.id"
@@ -170,3 +186,4 @@ function cancelDelete() {
     </div>
   </div>
 </template>
+

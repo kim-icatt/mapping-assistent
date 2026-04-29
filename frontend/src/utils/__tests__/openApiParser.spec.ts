@@ -92,10 +92,10 @@ describe('parseOpenApiToFields', () => {
 
   // Scenario: Invalid spec selected
   it('throws on null input', () => {
-    expect(() => parseOpenApiToFields(null)).toThrow()
+    expect(() => parseOpenApiToFields(null)).toThrow('Invalid spec')
   })
 
   it('throws on non-object input', () => {
-    expect(() => parseOpenApiToFields('not an object')).toThrow()
+    expect(() => parseOpenApiToFields('not an object')).toThrow('Invalid spec')
   })
 })
