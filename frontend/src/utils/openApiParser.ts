@@ -17,6 +17,11 @@ export function parseOpenApiToFields(spec: unknown): SchemaField[] {
   if (!spec || typeof spec !== 'object') throw new Error('Invalid spec: expected an object')
 
   const s = spec as Record<string, unknown>
+
+  if (!('openapi' in s) && !('swagger' in s)) {
+    throw new Error('Geen geldig OpenAPI-schema: veld "openapi" of "swagger" ontbreekt')
+  }
+
   const schemas: Record<string, unknown> =
     ((s.components as Record<string, unknown>)?.schemas as Record<string, unknown>) ??
     (s.definitions as Record<string, unknown>) ??

@@ -98,4 +98,8 @@ describe('parseOpenApiToFields', () => {
   it('throws on non-object input', () => {
     expect(() => parseOpenApiToFields('not an object')).toThrow('Invalid spec')
   })
+
+  it('throws when spec is valid JSON but not an OpenAPI/Swagger document', () => {
+    expect(() => parseOpenApiToFields({ foo: 'bar', data: [1, 2, 3] })).toThrow('openapi')
+  })
 })
