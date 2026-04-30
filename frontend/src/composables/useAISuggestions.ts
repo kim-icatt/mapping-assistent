@@ -44,8 +44,8 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     if (!apiKey) throw new AIServiceError('Claude API key not configured')
 
     const allSourceFields = flattenFields(sourceFields)
-    const sourcePaths = allSourceFields.map((f) => f.path)
-    const targetPaths = unmappedTargetFields.map((f) => f.path)
+    const sourcePaths = allSourceFields.slice(0, 5).map((f) => f.path)
+    const targetPaths = unmappedTargetFields.slice(0, 5).map((f) => f.path)
 
     const systemPrompt =
       'You are a field mapping assistant. Given source and target schema field paths, suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), and "confidenceScore" (number 0.0–1.0). Only return valid JSON, no markdown.'
