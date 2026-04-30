@@ -109,4 +109,31 @@ describe('useAISuggestions', () => {
 
     expect(store.suggestions).toHaveLength(0)
   })
+
+  it('throws AIServiceError when the API returns a non-OK status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 429, json: () => Promise.resolve({}) }),
+    )
+
+    const store = useAISuggestions()
+    await expect(store.generateSuggestions(sourceFields, unmappedTargetFields)).rejects.toThrow(
+      AIServiceError,
+    )
+  })
+
+  it('throws AIServiceError when the API response cannot be parsed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ content: [{ type: 'text', text: 'not-json' }] }),
+      }),
+    )
+
+    const store = useAISuggestions()
+    await expect(store.generateSuggestions(sourceFields, unmappedTargetFields)).rejects.toThrow(
+      AIServiceError,
+    )
+  })
 })
