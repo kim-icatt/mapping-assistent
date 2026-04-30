@@ -35,19 +35,46 @@ const linesWithMeta = computed(() =>
   })),
 )
 
+function midPoint(el: HTMLElement, side: 'source' | 'target', svgRect: DOMRect): { x: number; y: number } {
+  const r = el.getBoundingClientRect()
+  return {
+    x: r.left - svgRect.left + (side === 'source' ? r.width : 0),
+    y: r.top - svgRect.top + r.height / 2,
+  }
+}
+
 function getFieldMidY(fieldId: string, side: 'source' | 'target'): { x: number; y: number } | null {
+  if (!svgRef.value) return null
+  const svgRect = svgRef.value.getBoundingClientRect()
+
   const el = document.querySelector<HTMLElement>(
     `[data-field-id="${fieldId}"][data-field-side="${side}"]`,
   )
-  if (!el || !svgRef.value) return null
+  if (!el) return null
 
   const rect = el.getBoundingClientRect()
-  const svgRect = svgRef.value.getBoundingClientRect()
 
-  return {
-    x: rect.left - svgRect.left + (side === 'source' ? rect.width : 0),
-    y: rect.top - svgRect.top + rect.height / 2,
+  // Field is visible, or not inside a collapsible panel — use it directly
+  if (rect.height > 0 || !el.hasAttribute('data-field-in-group'))
+    return midPoint(el, side, svgRect)
+
+  // Field is hidden inside a panel — try the parent field toggle anchor (subtree collapsed)
+  const parentKey = el.getAttribute('data-child-of-field')
+  if (parentKey) {
+    const parentEl = document.querySelector<HTMLElement>(`[data-anchor-field="${parentKey}"]`)
+    if (parentEl && parentEl.getBoundingClientRect().height > 0)
+      return midPoint(parentEl, side, svgRect)
   }
+
+  // Fall back to the group header anchor (group collapsed)
+  const groupKey = el.getAttribute('data-field-in-group')
+  if (groupKey) {
+    const groupEl = document.querySelector<HTMLElement>(`[data-anchor-group="${groupKey}"]`)
+    if (groupEl && groupEl.getBoundingClientRect().height > 0)
+      return midPoint(groupEl, side, svgRect)
+  }
+
+  return null
 }
 
 function recalculate() {
@@ -71,11 +98,13 @@ onMounted(() => {
   scrollParent?.addEventListener('scroll', recalculate, { capture: true, passive: true })
   recalculate()
   window.addEventListener('resize', recalculate)
+  window.addEventListener('schema-panel-toggle', recalculate)
 })
 
 onUnmounted(() => {
   scrollParent?.removeEventListener('scroll', recalculate, { capture: true })
   window.removeEventListener('resize', recalculate)
+  window.removeEventListener('schema-panel-toggle', recalculate)
 })
 </script>
 

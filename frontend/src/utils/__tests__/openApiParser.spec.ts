@@ -102,4 +102,121 @@ describe('parseOpenApiToFields', () => {
   it('throws when spec is valid JSON but not an OpenAPI/Swagger document', () => {
     expect(() => parseOpenApiToFields({ foo: 'bar', data: [1, 2, 3] })).toThrow('openapi')
   })
+
+  // Scenario: Display nested $ref structure
+  it('resolves $ref properties into children on the parent field', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Zaak: {
+            type: 'object',
+            properties: {
+              adres: { $ref: '#/components/schemas/Adres' },
+            },
+          },
+          Adres: {
+            type: 'object',
+            properties: {
+              straat: { type: 'string' },
+              huisnummer: { type: 'integer' },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const adres = fields.find((f) => f.name === 'adres')
+    expect(adres).toBeDefined()
+    expect(adres?.dataType).toBe('object')
+    expect(adres?.children).toHaveLength(2)
+    expect(adres?.children?.find((c) => c.name === 'straat')?.dataType).toBe('string')
+  })
+
+  it('resolves array items with $ref into children', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Order: {
+            type: 'object',
+            properties: {
+              lines: {
+                type: 'array',
+                items: { $ref: '#/components/schemas/OrderLine' },
+              },
+            },
+          },
+          OrderLine: {
+            type: 'object',
+            properties: {
+              product: { type: 'string' },
+              quantity: { type: 'integer' },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const lines = fields.find((f) => f.name === 'lines')
+    expect(lines?.dataType).toBe('array')
+    expect(lines?.children).toHaveLength(2)
+    expect(lines?.children?.find((c) => c.name === 'product')).toBeDefined()
+  })
+
+  it('resolves inline array items with object properties into children', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Invoice: {
+            type: 'object',
+            properties: {
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    sku: { type: 'string' },
+                    price: { type: 'number' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const items = fields.find((f) => f.name === 'items')
+    expect(items?.dataType).toBe('array')
+    expect(items?.children).toHaveLength(2)
+    expect(items?.children?.find((c) => c.name === 'sku')).toBeDefined()
+  })
+
+  it('resolves inline object properties into children', () => {
+    const spec = {
+      openapi: '3.0.0',
+      components: {
+        schemas: {
+          Item: {
+            type: 'object',
+            properties: {
+              meta: {
+                type: 'object',
+                properties: {
+                  key: { type: 'string' },
+                  value: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+    }
+    const fields = parseOpenApiToFields(spec)
+    const meta = fields.find((f) => f.name === 'meta')
+    expect(meta?.children).toHaveLength(2)
+    expect(meta?.children?.find((c) => c.name === 'key')).toBeDefined()
+  })
 })
