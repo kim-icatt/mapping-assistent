@@ -36,7 +36,7 @@ Mapping Assistent stelt technische beheerders bij Nederlandse gemeenten in staat
 | Bronbeheer | Verbinden met bronsystemen en inspecteren van hun veldschema's | Bronsysteem, Bronschema, Bronveld |
 | Doelbeheer | Definiëren van het doelsysteem en de vereiste veldstructuur | Doelsysteem, Doelschema, Doelveld |
 | Veldkoppelingen | Aanmaken, bewerken, beoordelen en exporteren van veld-voor-veld koppelingen met transformatieregels | Veldkoppeling, Transformatieregel, Mappingset |
-| AI-assistentie | Genereren van koppelingssuggesties, beoordelen van betrouwbaarheid en bijhouden van suggestienauwkeurigheid | AI-suggestie, Suggestiescore, Acceptatieratio |
+| AI-assistentie | Genereren van koppelingssuggesties, voorstellen van transformatie-expressies, afleiden van validatieregels uit veldbeschrijvingen, en beheren van context- en API-kosten bij grote OpenAPI-specificaties | AI-suggestie, Suggestiescore, Acceptatieratio, TransformatieSuggestie, ValidatieRegel |
 
 ## Buiten bereik
 

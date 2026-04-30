@@ -20,7 +20,7 @@ Last updated: 2026-04-16
 - **Pattern:** Fase 1 — frontend-only SPA (Vue3 + Vite). Fase 2 — separated frontend SPA and backend REST API.
 - **Data flow (fase 1):** Vue3 frontend only; schema data and app state loaded from and persisted to local files (export/import). The frontend calls an AI API service directly for mapping suggestions.
 - **Data flow (fase 2):** Vue3 frontend → REST calls → .NET Core API → Entity Framework (persistence) + Claude API (AI suggestions).
-- **AI integration (fase 1):** The frontend calls an AI API service directly (provider TBD). Schema context is sent, mapping suggestions with confidence scores are returned. The beheerder reviews and confirms each suggestion.
+- **AI integration (fase 1):** The frontend calls the Claude API (Anthropic) directly for three AI pillars: (1) field mapping suggestions with confidence scores via a two-layer approach (embedding-based candidate retrieval followed by LLM reasoning); (2) JSONata transformation expression suggestions for type/format-incompatible field pairs; (3) validation rule inference from OpenAPI field descriptions. Anthropic prompt caching is used to keep repeated calls against the same loaded spec fast. Schema compression (stripping non-essential fields) and an embedding index are built on schema load to handle large specs without exceeding context limits.
 - **AI integration (fase 2):** AI calls are moved to the backend; the .NET Core API orchestrates them.
 
 ## Key Constraints
@@ -52,12 +52,11 @@ All commands run from `frontend/`.
 | Vue3 + .NET Core Web API | Company standard stack; aligns with team expertise and future maintainability | 2026-04-16 |
 | Fase 1: frontend-only (geen backend) | PoC fase vereist geen persistentie via backend; app state wordt opgeslagen en herladen via lokale bestandsexport. AI-integratie gebeurt direct vanuit de frontend. Backend en EF worden toegevoegd in fase 2. | 2026-04-16 |
 | Claude API for AI suggestions | Strong structured-data reasoning; suitable for field-to-field mapping inference | 2026-04-16 |
+| JSONata als transformatiestandaard | AI-suggesties genereren JSONata-expressies. JSONata is leesbaar, eval-baar in de browser (preview), en sluit aan op de AI-output zonder extra vertaallaag. | 2026-04-30 |
 
 ## Open Questions
 
-| Vraag | Context | Datum |
-|---|---|---|
-| JSONata als transformatiestandaard | JSONata is een mogelijke expressietaal voor het opslaan van transformatieregels (standaardwaarden, waardekoppelingen, conditionele logica) in het JSON-exportformaat. Alternatief is een eigen JSON-structuur met een `type`-veld. JSONata voegt waarde toe als de applicatie transformaties zelf uitvoert (bijv. preview); bij een puur definitietool is plain JSON voldoende. Verder onderzoek nodig voor definitieve keuze. | 2026-04-17 |
+No open questions.
 
 ## Known Pain Points
 
