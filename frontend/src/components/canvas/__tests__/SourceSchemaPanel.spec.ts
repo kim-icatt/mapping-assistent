@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import SourceSchemaPanel from '../SourceSchemaPanel.vue'
 import type { SchemaField } from '@/types'

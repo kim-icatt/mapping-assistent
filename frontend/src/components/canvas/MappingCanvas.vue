@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { SchemaField } from '@/types'
-import FieldNode from './FieldNode.vue'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
 import SchemaColumnHeader from './SchemaColumnHeader.vue'
 import ConnectionLines from './ConnectionLines.vue'
@@ -173,6 +172,7 @@ function onTargetUrlSubmit() {
           class="flex-1 overflow-y-auto"
           data-scroll-container
           :fields="sourceFields"
+          side="source"
           @field-click="onSourceFieldClick"
         />
       </div>
@@ -229,6 +229,7 @@ function onTargetUrlSubmit() {
           class="flex-1 overflow-y-auto"
           data-scroll-container
           :fields="targetFields"
+          side="target"
           @field-click="onTargetFieldClick"
         />
       </div>
