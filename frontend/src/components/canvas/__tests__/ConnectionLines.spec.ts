@@ -8,21 +8,12 @@ function mountWithContainers() {
   const pinia = createPinia()
   setActivePinia(pinia)
 
-  // Add scroll containers so attachScrollListeners has elements to bind
-  const source = document.createElement('div')
-  source.setAttribute('data-scroll-container', '')
-  document.body.appendChild(source)
-
-  const target = document.createElement('div')
-  target.setAttribute('data-scroll-container', '')
-  document.body.appendChild(target)
-
   const wrapper = mount(ConnectionLines, {
     global: { plugins: [pinia] },
     attachTo: document.body,
   })
 
-  return { wrapper, source, target }
+  return { wrapper }
 }
 
 beforeEach(() => {
@@ -30,7 +21,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  document.querySelectorAll('[data-scroll-container]').forEach((el) => el.remove())
   document.querySelectorAll('[data-field-id]').forEach((el) => el.remove())
 })
 
@@ -66,20 +56,19 @@ describe('ConnectionLines', () => {
     expect(wrapper.findAll('[data-testid="connection-path"]')).toHaveLength(1)
   })
 
-  it('attaches scroll listeners and cleans up on unmount', () => {
+  it('attaches a capture scroll listener on the parent and removes it on unmount', () => {
     const addSpy = vi.spyOn(EventTarget.prototype, 'addEventListener')
     const removeSpy = vi.spyOn(EventTarget.prototype, 'removeEventListener')
 
     const { wrapper } = mountWithContainers()
 
-    // scroll containers should have scroll listeners attached
-    const scrollBindings = addSpy.mock.calls.filter(([ev]) => ev === 'scroll')
-    expect(scrollBindings.length).toBeGreaterThan(0)
+    const scrollAdded = addSpy.mock.calls.filter(([ev, , opts]) => ev === 'scroll' && (opts as AddEventListenerOptions)?.capture)
+    expect(scrollAdded.length).toBeGreaterThan(0)
 
     wrapper.unmount()
 
-    const scrollRemovals = removeSpy.mock.calls.filter(([ev]) => ev === 'scroll')
-    expect(scrollRemovals.length).toBeGreaterThan(0)
+    const scrollRemoved = removeSpy.mock.calls.filter(([ev, , opts]) => ev === 'scroll' && (opts as EventListenerOptions)?.capture)
+    expect(scrollRemoved.length).toBeGreaterThan(0)
 
     addSpy.mockRestore()
     removeSpy.mockRestore()

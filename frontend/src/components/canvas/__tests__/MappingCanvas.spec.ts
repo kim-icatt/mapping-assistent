@@ -55,18 +55,18 @@ beforeEach(() => {
 })
 
 describe('MappingCanvas', () => {
-  // Scenario: Empty state without loaded schemas
-  it("shows an empty state when no schemas are loaded", () => {
+  // Scenario: Upload UI visible when no source schema loaded
+  it('shows source upload area when no schemas are loaded', () => {
     const wrapper = mount(MappingCanvas, {
       global: { plugins: [createPinia()] },
       props: { sourceFields: [], targetFields: [] },
     })
-    expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(true)
   })
 
-  it("hides the empty state when schema fields are present", () => {
+  it('hides source upload area when source fields are present', () => {
     const wrapper = mountCanvas()
-    expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(false)
   })
 
   // Scenario: Source field nodes visible after loading source schema
@@ -224,5 +224,45 @@ describe('Coverage rate counters', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('0 van 8 doelvelden gekoppeld')
+  })
+})
+
+describe('Source schema upload UI', () => {
+  function mountNoSource() {
+    return mount(MappingCanvas, {
+      global: { plugins: [createPinia()] },
+      props: { sourceFields: [], targetFields },
+    })
+  }
+
+  // Scenario: Upload UI visible when no source schema loaded
+  it('shows source upload area when sourceFields is empty', () => {
+    const wrapper = mountNoSource()
+    expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(true)
+  })
+
+  it('hides source upload area when sourceFields are present', () => {
+    const wrapper = mountCanvas()
+    expect(wrapper.find('[data-testid="source-upload"]').exists()).toBe(false)
+  })
+
+  it('emits SourceFileSelected when a file is chosen', async () => {
+    const wrapper = mountNoSource()
+    const input = wrapper.find('[data-testid="source-file-input"]')
+    const file = new File(['{}'], 'spec.json', { type: 'application/json' })
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+
+    expect(wrapper.emitted('SourceFileSelected')).toBeTruthy()
+    expect(wrapper.emitted('SourceFileSelected')![0]![0]).toBe(file)
+  })
+
+  it('emits SourceUrlEntered when a URL is submitted', async () => {
+    const wrapper = mountNoSource()
+    await wrapper.find('[data-testid="source-url-input"]').setValue('https://example.com/api.json')
+    await wrapper.find('form').trigger('submit')
+
+    expect(wrapper.emitted('SourceUrlEntered')).toBeTruthy()
+    expect(wrapper.emitted('SourceUrlEntered')![0]![0]).toBe('https://example.com/api.json')
   })
 })

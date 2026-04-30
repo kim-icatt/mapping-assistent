@@ -1,32 +1,37 @@
 <script setup lang="ts">
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
-import type { SchemaField } from '@/types'
+import { useSourceSchema } from '@/composables/useSourceSchema'
+import { useTargetSchema } from '@/composables/useTargetSchema'
 
-const sourceFields: SchemaField[] = [
-  { id: 'src-1', name: 'zaakId', path: 'zaakId', dataType: 'string', required: true },
-  { id: 'src-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
-  { id: 'src-3', name: 'startDatum', path: 'startDatum', dataType: 'date', required: true },
-  { id: 'src-4', name: 'statusCode', path: 'statusCode', dataType: 'string', required: true },
-  { id: 'src-5', name: 'prioriteit', path: 'prioriteit', dataType: 'number', required: false },
-]
+const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
+const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
 
-const targetFields: SchemaField[] = [
-  { id: 'tgt-1', name: 'uuid', path: 'uuid', dataType: 'string', required: true, maxLength: 36 },
-  { id: 'tgt-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false },
-  { id: 'tgt-3', name: 'startdatum', path: 'startdatum', dataType: 'date', required: true },
-  { id: 'tgt-4', name: 'status', path: 'status', dataType: 'string', required: true },
-]
+async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
+async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
+async function onTargetFileSelected(file: File) { await loadTargetFromFile(file) }
+async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
 </script>
 
 <template>
   <main class="flex h-full gap-4 p-4 bg-slate-100 overflow-hidden">
+    <div
+      v-if="sourceError || targetError"
+      class="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2 rounded-lg shadow"
+      data-testid="schema-error"
+    >
+      {{ sourceError || targetError }}
+    </div>
     <div class="flex-1 min-w-0">
       <MappingCanvas
         :source-fields="sourceFields"
         :target-fields="targetFields"
-        source-label="e-Suite"
-        target-label="OpenZaak"
+        :source-label="sourceSchemaName || 'Bronschema'"
+        :target-label="targetSchemaName || 'Doelschema'"
+        @source-file-selected="onSourceFileSelected"
+        @source-url-entered="onSourceUrlEntered"
+        @target-file-selected="onTargetFileSelected"
+        @target-url-entered="onTargetUrlEntered"
       />
     </div>
     <div class="w-80 shrink-0">

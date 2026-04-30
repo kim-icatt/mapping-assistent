@@ -64,30 +64,17 @@ function recalculate() {
 
 watch(mappings, () => nextTick(recalculate), { deep: true })
 
-const scrollListeners: { el: Element; fn: () => void }[] = []
-
-function attachScrollListeners() {
-  const containers = document.querySelectorAll('[data-scroll-container]')
-  containers.forEach((el) => {
-    const fn = () => recalculate()
-    el.addEventListener('scroll', fn)
-    scrollListeners.push({ el, fn })
-  })
-}
-
-function detachScrollListeners() {
-  scrollListeners.forEach(({ el, fn }) => el.removeEventListener('scroll', fn))
-  scrollListeners.length = 0
-}
+let scrollParent: HTMLElement | null = null
 
 onMounted(() => {
+  scrollParent = svgRef.value?.parentElement ?? null
+  scrollParent?.addEventListener('scroll', recalculate, { capture: true, passive: true })
   recalculate()
-  attachScrollListeners()
   window.addEventListener('resize', recalculate)
 })
 
 onUnmounted(() => {
-  detachScrollListeners()
+  scrollParent?.removeEventListener('scroll', recalculate, { capture: true })
   window.removeEventListener('resize', recalculate)
 })
 </script>
