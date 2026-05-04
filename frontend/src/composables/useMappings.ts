@@ -4,6 +4,11 @@ import type { FieldMapping } from '@/types'
 
 export const useMappings = defineStore('mappings', () => {
   const mappings = ref<FieldMapping[]>([])
+  const selectedMappingId = ref<string | null>(null)
+
+  function selectMapping(id: string | null): void {
+    selectedMappingId.value = id
+  }
 
   function hasMapping(sourceFieldId: string): boolean {
     return mappings.value.some((m) => m.sourceFieldId === sourceFieldId)
@@ -38,5 +43,5 @@ export const useMappings = defineStore('mappings', () => {
     mappings.value = mappings.value.filter((m) => m.id !== id)
   }
 
-  return { mappings, hasMapping, createMapping, removeMapping }
+  return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping }
 })
