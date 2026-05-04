@@ -1,27 +1,20 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
-import { useAISuggestions } from '@/composables/useAISuggestions'
 
 const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
 const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
-const aiStore = useAISuggestions()
+
+const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
+const bothSchemasLoaded = computed(() => sourceFields.value.length > 0 && targetFields.value.length > 0)
 
 async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
 async function onTargetFileSelected(file: File) { await loadTargetFromFile(file) }
 async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
-
-async function testAI() {
-  const flat = (fields: typeof sourceFields.value): typeof sourceFields.value =>
-    fields.flatMap((f) => [f, ...(f.children ? flat(f.children) : [])])
-  const zaakSource = flat(sourceFields.value).filter((f) => f.path.startsWith('Zaak')).slice(0, 10)
-  const zaakTarget = flat(targetFields.value).filter((f) => f.path.startsWith('Zaak')).slice(0, 10)
-  const result = await aiStore.generateSuggestions(zaakSource, zaakTarget)
-  alert(`Got ${result.length} suggestions — check the browser console for details.`)
-}
 </script>
 
 <template>
@@ -33,30 +26,32 @@ async function testAI() {
     >
       {{ sourceError || targetError }}
     </div>
-    <div class="flex-1 min-w-0">
-      <MappingCanvas
-        :source-fields="sourceFields"
-        :target-fields="targetFields"
-        :source-label="sourceSchemaName || 'Bronschema'"
-        :target-label="targetSchemaName || 'Doelschema'"
-        @source-file-selected="onSourceFileSelected"
-        @source-url-entered="onSourceUrlEntered"
-        @target-file-selected="onTargetFileSelected"
-        @target-url-entered="onTargetUrlEntered"
-      />
-    </div>
-    <!-- TEMP: AI test button — remove after Task 2 -->
-    <div class="absolute bottom-4 right-4 z-50">
-      <button
-        class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow"
-        :disabled="aiStore.isLoading"
-        @click="testAI"
-      >
-        {{ aiStore.isLoading ? 'Fetching…' : 'Test AI' }}
-      </button>
+    <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
+      <div v-if="bothSchemasLoaded" class="flex justify-end">
+        <button
+          class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm"
+          data-testid="open-ai-tab"
+          @click="activeTab = 'ai'"
+        >
+          + AI Suggesties
+        </button>
+      </div>
+      <div class="flex-1 min-h-0">
+        <MappingCanvas
+          :source-fields="sourceFields"
+          :target-fields="targetFields"
+          :source-label="sourceSchemaName || 'Bronschema'"
+          :target-label="targetSchemaName || 'Doelschema'"
+          @source-file-selected="onSourceFileSelected"
+          @source-url-entered="onSourceUrlEntered"
+          @target-file-selected="onTargetFileSelected"
+          @target-url-entered="onTargetUrlEntered"
+        />
+      </div>
     </div>
     <div class="w-80 shrink-0">
       <MappingOverview
+        v-model:active-tab="activeTab"
         :source-fields="sourceFields"
         :target-fields="targetFields"
       />
