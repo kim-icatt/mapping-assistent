@@ -27,16 +27,7 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
       {{ sourceError || targetError }}
     </div>
     <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
-      <div v-if="bothSchemasLoaded" class="flex justify-end">
-        <button
-          class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm"
-          data-testid="open-ai-tab"
-          @click="activeTab = 'ai'"
-        >
-          + AI Suggesties
-        </button>
-      </div>
-      <div class="flex-1 min-h-0">
+<div class="flex-1 min-h-0">
         <MappingCanvas
           :source-fields="sourceFields"
           :target-fields="targetFields"
