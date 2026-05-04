@@ -32,7 +32,12 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     sourceFields: SchemaField[],
     unmappedTargetFields: SchemaField[],
   ): Promise<AiSuggestion[]> {
+    console.log('[AI] generateSuggestions called', {
+      sourceCount: sourceFields.length,
+      targetCount: unmappedTargetFields.length,
+    })
     if (unmappedTargetFields.length === 0) {
+      console.log('[AI] No unmapped target fields — skipping API call')
       suggestions.value = []
       return []
     }
@@ -44,13 +49,17 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     if (!apiKey) throw new AIServiceError('Claude API key not configured')
 
     const allSourceFields = flattenFields(sourceFields)
-    const sourcePaths = allSourceFields.slice(0, 5).map((f) => f.path)
-    const targetPaths = unmappedTargetFields.slice(0, 5).map((f) => f.path)
+    // Capped to control prompt size and keep API costs low during PoC
+    const sourceEntries = allSourceFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
+    const targetEntries = unmappedTargetFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
 
     const systemPrompt =
-      'You are a field mapping assistant. Given source and target schema field paths, suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), and "confidenceScore" (number 0.0–1.0). Only return valid JSON, no markdown.'
+      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), and "confidenceScore" (number 0.0–1.0). Only return valid JSON, no markdown.'
 
-    const userMessage = `Source fields: ${JSON.stringify(sourcePaths)}\n\nUnmapped target fields: ${JSON.stringify(targetPaths)}\n\nReturn JSON suggestions.`
+    const userMessage = `Source fields: ${JSON.stringify(sourceEntries)}\n\nUnmapped target fields: ${JSON.stringify(targetEntries)}\n\nReturn JSON suggestions.`
+
+    console.log('[AI] System prompt:\n' + systemPrompt)
+    console.log('[AI] User message:\n' + userMessage)
 
     let responseData: unknown
     try {
@@ -84,8 +93,11 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     }
 
     try {
-      const text =
+      const raw =
         (responseData as { content: Array<{ type: string; text: string }> }).content[0]?.text ?? ''
+      const start = raw.indexOf('{')
+      const end = raw.lastIndexOf('}')
+      const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
       const parsed = JSON.parse(text) as { suggestions: ClaudeApiSuggestion[] }
 
       const resolved: AiSuggestion[] = parsed.suggestions.reduce<AiSuggestion[]>((acc, s) => {
@@ -104,6 +116,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
         return acc
       }, [])
 
+      console.log('[AI] Suggestions', resolved.map((s) => ({ sourceFieldId: s.sourceFieldId, targetFieldId: s.targetFieldId, score: s.confidenceScore })))
       suggestions.value = resolved
 
       const event: AISuggestionsGenerated = {

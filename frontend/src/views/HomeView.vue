@@ -3,14 +3,25 @@ import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
+import { useAISuggestions } from '@/composables/useAISuggestions'
 
 const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
 const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
+const aiStore = useAISuggestions()
 
 async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
 async function onTargetFileSelected(file: File) { await loadTargetFromFile(file) }
 async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
+
+async function testAI() {
+  const flat = (fields: typeof sourceFields.value): typeof sourceFields.value =>
+    fields.flatMap((f) => [f, ...(f.children ? flat(f.children) : [])])
+  const zaakSource = flat(sourceFields.value).filter((f) => f.path.startsWith('Zaak')).slice(0, 10)
+  const zaakTarget = flat(targetFields.value).filter((f) => f.path.startsWith('Zaak')).slice(0, 10)
+  const result = await aiStore.generateSuggestions(zaakSource, zaakTarget)
+  alert(`Got ${result.length} suggestions — check the browser console for details.`)
+}
 </script>
 
 <template>
@@ -33,6 +44,16 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
         @target-file-selected="onTargetFileSelected"
         @target-url-entered="onTargetUrlEntered"
       />
+    </div>
+    <!-- TEMP: AI test button — remove after Task 2 -->
+    <div class="absolute bottom-4 right-4 z-50">
+      <button
+        class="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg shadow"
+        :disabled="aiStore.isLoading"
+        @click="testAI"
+      >
+        {{ aiStore.isLoading ? 'Fetching…' : 'Test AI' }}
+      </button>
     </div>
     <div class="w-80 shrink-0">
       <MappingOverview
