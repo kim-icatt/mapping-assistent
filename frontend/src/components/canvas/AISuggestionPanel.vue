@@ -13,6 +13,7 @@ const props = defineProps<{
 const aiStore = useAISuggestions()
 const mappingsStore = useMappings()
 
+const mappedSourceIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.sourceFieldId)))
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
 
 function flattenFields(fields: SchemaField[]): SchemaField[] {
@@ -21,7 +22,9 @@ function flattenFields(fields: SchemaField[]): SchemaField[] {
 
 // Capped to Zaak context only to control prompt size and cost during PoC
 const zaakSourceFields = computed(() =>
-  flattenFields(props.sourceFields).filter((f) => f.path.startsWith('Zaak')).slice(0, 5),
+  flattenFields(props.sourceFields)
+    .filter((f) => f.path.startsWith('Zaak') && !mappedSourceIds.value.has(f.id))
+    .slice(0, 5),
 )
 
 const unmappedTargetFields = computed(() =>
