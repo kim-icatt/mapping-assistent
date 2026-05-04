@@ -2,6 +2,9 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { SchemaField, AiSuggestion } from '@/types'
 import type { AISuggestionsGenerated } from '@/domain/events/AISuggestionsGenerated'
+import type { AISuggestionAccepted } from '@/domain/events/AISuggestionAccepted'
+import type { AISuggestionRejected } from '@/domain/events/AISuggestionRejected'
+import { useMappings } from '@/composables/useMappings'
 
 export class AIServiceError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
@@ -136,5 +139,39 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     }
   }
 
-  return { suggestions, isLoading, error, generateSuggestions }
+  function acceptSuggestion(id: string): void {
+    const suggestion = suggestions.value.find((s) => s.id === id)
+    if (!suggestion) return
+
+    const mappingsStore = useMappings()
+    mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId })
+
+    suggestions.value = suggestions.value.filter((s) => s.id !== id)
+
+    const event: AISuggestionAccepted = {
+      type: 'AISuggestionAccepted',
+      sourceFieldId: suggestion.sourceFieldId,
+      targetFieldId: suggestion.targetFieldId,
+      confidenceScore: suggestion.confidenceScore,
+      timestamp: new Date().toISOString(),
+    }
+    window.dispatchEvent(new CustomEvent('AISuggestionAccepted', { detail: event }))
+  }
+
+  function rejectSuggestion(id: string): void {
+    const suggestion = suggestions.value.find((s) => s.id === id)
+    if (!suggestion) return
+
+    suggestions.value = suggestions.value.filter((s) => s.id !== id)
+
+    const event: AISuggestionRejected = {
+      type: 'AISuggestionRejected',
+      sourceFieldId: suggestion.sourceFieldId,
+      targetFieldId: suggestion.targetFieldId,
+      timestamp: new Date().toISOString(),
+    }
+    window.dispatchEvent(new CustomEvent('AISuggestionRejected', { detail: event }))
+  }
+
+  return { suggestions, isLoading, error, generateSuggestions, acceptSuggestion, rejectSuggestion }
 })
