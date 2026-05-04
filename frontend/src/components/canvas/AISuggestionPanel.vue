@@ -15,8 +15,21 @@ const mappingsStore = useMappings()
 
 const mappedTargetIds = computed(() => new Set(mappingsStore.mappings.map((m) => m.targetFieldId)))
 
+function flattenFields(fields: SchemaField[]): SchemaField[] {
+  return fields.flatMap((f) => [f, ...(f.children ? flattenFields(f.children) : [])])
+}
+
+// Capped to Zaak context only to control prompt size and cost during PoC
+const zaakSourceFields = computed(() =>
+  flattenFields(props.sourceFields).filter((f) => f.path.startsWith('Zaak')).slice(0, 5),
+)
+
 const unmappedTargetFields = computed(() =>
   props.targetFields.filter((f) => !mappedTargetIds.value.has(f.id)),
+)
+
+const zaakUnmappedTargetFields = computed(() =>
+  unmappedTargetFields.value.filter((f) => f.path.startsWith('Zaak')).slice(0, 5),
 )
 
 const resolvedSuggestions = computed(() =>
@@ -29,7 +42,7 @@ const resolvedSuggestions = computed(() =>
 )
 
 async function generate() {
-  await aiStore.generateSuggestions(props.sourceFields, unmappedTargetFields.value)
+  await aiStore.generateSuggestions(zaakSourceFields.value, zaakUnmappedTargetFields.value)
 }
 </script>
 
@@ -45,7 +58,7 @@ async function generate() {
 
   <!-- Empty: all target fields already mapped -->
   <div
-    v-else-if="unmappedTargetFields.length === 0"
+    v-else-if="zaakUnmappedTargetFields.length === 0"
     class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 text-slate-400 text-sm"
     data-testid="empty-state"
   >

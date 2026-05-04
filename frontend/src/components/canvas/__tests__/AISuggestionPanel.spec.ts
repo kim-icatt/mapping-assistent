@@ -7,11 +7,11 @@ import { useMappings } from '@/composables/useMappings'
 import type { SchemaField, AiSuggestion } from '@/types'
 
 const sourceFields: SchemaField[] = [
-  { id: 'src-1', name: 'customerId', path: 'customerId', dataType: 'string', required: true },
+  { id: 'src-1', name: 'identificatie', path: 'Zaak.identificatie', dataType: 'string', required: true },
 ]
 const targetFields: SchemaField[] = [
-  { id: 'tgt-1', name: 'client_id', path: 'client_id', dataType: 'string', required: true },
-  { id: 'tgt-2', name: 'uuid', path: 'uuid', dataType: 'string', required: true },
+  { id: 'tgt-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true },
+  { id: 'tgt-2', name: 'omschrijving', path: 'Zaak.omschrijving', dataType: 'string', required: true },
 ]
 
 function mountPanel(props = { sourceFields, targetFields }) {
@@ -51,8 +51,8 @@ describe('AISuggestionPanel', () => {
     ] as AiSuggestion[]
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
-    expect(wrapper.text()).toContain('customerId')
-    expect(wrapper.text()).toContain('client_id')
+    expect(wrapper.text()).toContain('identificatie')
+    expect(wrapper.text()).toContain('uuid')
   })
 
   // Scenario: Empty state when no unmapped target fields
