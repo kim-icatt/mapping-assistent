@@ -28,11 +28,11 @@ export function getValidationStatus(source: SchemaField, target: SchemaField): V
 export function getConstraintReason(source: SchemaField, target: SchemaField): string {
   if (source.dataType === 'string' && target.dataType === 'string' &&
       source.maxLength !== undefined && target.maxLength !== undefined) {
-    return `Source field is longer than target field (max ${source.maxLength} vs ${target.maxLength}) — truncation required`
+    return `Bronveld is langer dan doelveld (max. ${source.maxLength} vs ${target.maxLength}) — afkapping vereist`
   }
-  return `${source.dataType} to ${target.dataType} requires transformation`
+  return `${source.dataType} naar ${target.dataType} vereist transformatie`
 }
 
 export function getIncompatibilityReason(source: SchemaField, target: SchemaField): string {
-  return `${source.dataType} cannot be converted to ${target.dataType}`
+  return `${source.dataType} kan niet worden omgezet naar ${target.dataType}`
 }

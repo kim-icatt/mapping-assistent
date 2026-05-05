@@ -53,7 +53,7 @@ describe('CouplingDetailPanel', () => {
     await wrapper.vm.$nextTick()
 
     const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
-    expect(validationSection.text()).toContain('compatible')
+    expect(validationSection.text()).toContain('compatibel')
     expect(wrapper.find('[data-testid="transformation-placeholder"]').exists()).toBe(false)
   })
 

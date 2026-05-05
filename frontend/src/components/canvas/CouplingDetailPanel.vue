@@ -75,7 +75,7 @@ const incompatibilityReason = computed(() =>
   >
     <!-- Header -->
     <div class="px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-      <span class="text-sm font-medium text-slate-700">Coupling detail</span>
+      <span class="text-sm font-medium text-slate-700">Koppelingsdetail</span>
       <button
         class="text-slate-400 hover:text-slate-600 transition-colors leading-none focus:ring-2 focus:ring-offset-1 focus:ring-slate-400 rounded"
         data-testid="detail-close"
@@ -86,7 +86,7 @@ const incompatibilityReason = computed(() =>
 
     <!-- Source field -->
     <div class="px-4 pt-4 pb-2" data-testid="detail-source-field">
-      <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Source field</p>
+      <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Bronveld</p>
       <div class="flex items-center gap-2">
         <span class="font-mono text-sm text-[color:var(--color-source)] truncate flex-1">
           {{ sourceField.name }}
@@ -106,7 +106,7 @@ const incompatibilityReason = computed(() =>
 
     <!-- Target field -->
     <div class="px-4 pt-2 pb-4" data-testid="detail-target-field">
-      <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Target field</p>
+      <p class="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Doelveld</p>
       <div class="flex items-center gap-2">
         <span class="font-mono text-sm text-[color:var(--color-destination)] truncate flex-1">
           {{ targetField.name }}
@@ -134,7 +134,7 @@ const incompatibilityReason = computed(() =>
     >
       <!-- Compatible -->
       <template v-if="validationStatus === 'compatible'">
-        <span class="font-medium">✓ Coupling is compatible.</span>
+        <span class="font-medium">✓ Koppeling is compatibel.</span>
       </template>
 
       <!-- Constrained -->
@@ -144,14 +144,14 @@ const incompatibilityReason = computed(() =>
           class="mt-2 border border-dashed border-amber-200 rounded p-2 text-[11px] italic text-slate-300"
           data-testid="transformation-placeholder"
         >
-          — Transformation rule —
+          — Transformatieregel —
         </div>
       </template>
 
       <!-- Incompatible -->
       <template v-else-if="validationStatus === 'incompatible'">
         <span class="font-medium">✕ {{ incompatibilityReason }}</span>
-        <p class="mt-1 text-xs" data-testid="remap-note">This coupling must be remapped.</p>
+        <p class="mt-1 text-xs" data-testid="remap-note">Deze koppeling moet opnieuw worden gemaakt.</p>
       </template>
     </div>
   </div>
