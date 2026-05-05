@@ -35,14 +35,18 @@ const zaakUnmappedTargetFields = computed(() =>
   unmappedTargetFields.value.filter((f) => f.path.startsWith('Zaak')).slice(0, 5),
 )
 
+const CONFIDENCE_THRESHOLD = 0.70
+
 const resolvedSuggestions = computed(() => {
   const allSource = flattenFields(props.sourceFields)
-  return aiStore.suggestions.map((s) => ({
-    id: s.id,
-    sourceName: allSource.find((f) => f.id === s.sourceFieldId)?.name ?? s.sourceFieldId,
-    targetName: props.targetFields.find((f) => f.id === s.targetFieldId)?.name ?? s.targetFieldId,
-    confidenceScore: s.confidenceScore,
-  }))
+  return aiStore.suggestions
+    .filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
+    .map((s) => ({
+      id: s.id,
+      sourceName: allSource.find((f) => f.id === s.sourceFieldId)?.name ?? s.sourceFieldId,
+      targetName: props.targetFields.find((f) => f.id === s.targetFieldId)?.name ?? s.targetFieldId,
+      confidenceScore: s.confidenceScore,
+    }))
 })
 
 async function generate() {

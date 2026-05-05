@@ -180,4 +180,41 @@ describe('AISuggestionPanel', () => {
       expect(wrapper.find('[data-testid="acceptance-rate"]').exists()).toBe(false)
     })
   })
+
+  // Confidence threshold filtering
+  describe('confidence threshold', () => {
+    it('does not render suggestions with confidenceScore below 0.70', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'low', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.65, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(0)
+    })
+
+    it('renders suggestions with confidenceScore of exactly 0.70', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'threshold', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.70, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
+    })
+
+    it('only renders suggestions at or above the 0.70 threshold', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'high', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.90, status: 'pending' },
+        { id: 'low', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.50, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
+    })
+  })
 })
