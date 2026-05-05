@@ -172,7 +172,8 @@ async function generate() {
           :source-name="s.sourceName"
           :target-name="s.targetName"
           :confidence-score="s.confidenceScore"
-          :interactive="false"
+          @accept="aiStore.acceptSuggestion($event)"
+          @reject="aiStore.rejectSuggestion($event)"
         />
       </div>
     </div>

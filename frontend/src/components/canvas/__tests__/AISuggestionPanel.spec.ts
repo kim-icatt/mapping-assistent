@@ -278,7 +278,7 @@ describe('AISuggestionPanel', () => {
       expect(wrapper.find('[data-testid="low-confidence-list"]').exists()).toBe(false)
     })
 
-    it('low-confidence cards do not have accept or reject buttons', async () => {
+    it('low-confidence cards have accept and reject buttons', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [] as AiSuggestion[]
@@ -291,8 +291,46 @@ describe('AISuggestionPanel', () => {
       await wrapper.vm.$nextTick()
 
       const list = wrapper.find('[data-testid="low-confidence-list"]')
-      expect(list.find('[data-testid="accept-button"]').exists()).toBe(false)
-      expect(list.find('[data-testid="reject-button"]').exists()).toBe(false)
+      expect(list.find('[data-testid="accept-button"]').exists()).toBe(true)
+      expect(list.find('[data-testid="reject-button"]').exists()).toBe(true)
+    })
+
+    it('accepting a low-confidence suggestion creates a mapping and removes it', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.suggestions = [] as AiSuggestion[]
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'b', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.55, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="low-confidence-list"] [data-testid="accept-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(1)
+    })
+
+    it('rejecting a low-confidence suggestion removes it without creating a mapping', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.suggestions = [] as AiSuggestion[]
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'b', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.55, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="low-confidence-list"] [data-testid="reject-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(0)
     })
   })
 })

@@ -138,6 +138,37 @@ describe('useAISuggestions', () => {
     )
   })
 
+  // Scenario: Administrator acts on a low-confidence suggestion
+  describe('low-confidence accept/reject', () => {
+    it('accepts a low-confidence suggestion and removes it from lowConfidenceSuggestions', () => {
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'low-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.55, status: 'pending' },
+      ]
+
+      aiStore.acceptSuggestion('low-1')
+
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(1)
+      expect(aiStore.accepted).toBe(1)
+    })
+
+    it('rejects a low-confidence suggestion and removes it without creating a mapping', () => {
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'low-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.55, status: 'pending' },
+      ]
+
+      aiStore.rejectSuggestion('low-1')
+
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(0)
+      expect(aiStore.rejected).toBe(1)
+    })
+  })
+
   // Scenario: Administrator accepts an AI suggestion
   describe('acceptSuggestion', () => {
     it('creates a field mapping and removes the suggestion from the list', () => {

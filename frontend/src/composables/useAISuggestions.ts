@@ -150,13 +150,19 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   }
 
   function acceptSuggestion(id: string): void {
-    const suggestion = suggestions.value.find((s) => s.id === id)
+    const inHigh = suggestions.value.find((s) => s.id === id)
+    const inLow = !inHigh && lowConfidenceSuggestions.value.find((s) => s.id === id)
+    const suggestion = inHigh ?? inLow
     if (!suggestion) return
 
     const mappingsStore = useMappings()
     mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId })
 
-    suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    if (inHigh) {
+      suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    } else {
+      lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
+    }
     accepted.value++
 
     const event: AISuggestionAccepted = {
@@ -170,10 +176,16 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   }
 
   function rejectSuggestion(id: string): void {
-    const suggestion = suggestions.value.find((s) => s.id === id)
+    const inHigh = suggestions.value.find((s) => s.id === id)
+    const inLow = !inHigh && lowConfidenceSuggestions.value.find((s) => s.id === id)
+    const suggestion = inHigh ?? inLow
     if (!suggestion) return
 
-    suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    if (inHigh) {
+      suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    } else {
+      lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
+    }
     rejected.value++
 
     const event: AISuggestionRejected = {
