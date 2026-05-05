@@ -7,6 +7,7 @@ const INCOMPATIBLE_PAIRS = new Set([
   'array-string', 'array-number', 'array-boolean', 'array-date', 'array-object',
   'string-object', 'number-object', 'boolean-object', 'date-object',
   'string-array', 'number-array', 'boolean-array', 'date-array',
+  'boolean-date', 'date-boolean',
 ])
 
 export function getValidationStatus(source: SchemaField, target: SchemaField): ValidationStatus {
