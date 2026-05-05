@@ -138,6 +138,37 @@ describe('useAISuggestions', () => {
     )
   })
 
+  // Scenario: Administrator acts on a low-confidence suggestion
+  describe('low-confidence accept/reject', () => {
+    it('accepts a low-confidence suggestion and removes it from lowConfidenceSuggestions', () => {
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'low-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.55, status: 'pending' },
+      ]
+
+      aiStore.acceptSuggestion('low-1')
+
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(1)
+      expect(aiStore.accepted).toBe(1)
+    })
+
+    it('rejects a low-confidence suggestion and removes it without creating a mapping', () => {
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'low-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.55, status: 'pending' },
+      ]
+
+      aiStore.rejectSuggestion('low-1')
+
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(0)
+      expect(aiStore.rejected).toBe(1)
+    })
+  })
+
   // Scenario: Administrator accepts an AI suggestion
   describe('acceptSuggestion', () => {
     it('creates a field mapping and removes the suggestion from the list', () => {
@@ -210,6 +241,160 @@ describe('useAISuggestions', () => {
 
       expect(events).toHaveLength(1)
       expect(events[0]?.detail).toMatchObject({ type: 'AISuggestionRejected', sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    })
+  })
+
+  // Scenario: Rate is updated after acceptance
+  describe('acceptance rate tracking', () => {
+    it('increments accepted counter when a suggestion is accepted', () => {
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+
+      aiStore.acceptSuggestion('sug-1')
+
+      expect(aiStore.accepted).toBe(1)
+      expect(aiStore.rejected).toBe(0)
+    })
+
+    // Scenario: Rate is updated after rejection
+    it('increments rejected counter when a suggestion is rejected', () => {
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+
+      aiStore.rejectSuggestion('sug-1')
+
+      expect(aiStore.accepted).toBe(0)
+      expect(aiStore.rejected).toBe(1)
+    })
+
+    it('tracks both accepted and rejected independently', () => {
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+        { id: 'sug-2', sourceFieldId: 'src-2', targetFieldId: 'tgt-2', confidenceScore: 0.90, status: 'pending' },
+      ]
+
+      aiStore.acceptSuggestion('sug-1')
+      aiStore.rejectSuggestion('sug-2')
+
+      expect(aiStore.accepted).toBe(1)
+      expect(aiStore.rejected).toBe(1)
+    })
+
+    it('counters persist across multiple generateSuggestions calls', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            choices: [{ message: { content: JSON.stringify({ suggestions: [{ sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 }] }) } }],
+          }),
+        }),
+      )
+
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+      aiStore.acceptSuggestion('sug-1')
+      expect(aiStore.accepted).toBe(1)
+
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(aiStore.accepted).toBe(1)
+      expect(aiStore.rejected).toBe(0)
+    })
+
+    it('stores below-threshold suggestions in lowConfidenceSuggestions', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            choices: [{ message: { content: JSON.stringify({ suggestions: [
+              { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+              { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.50 },
+            ] }) } }],
+          }),
+        }),
+      )
+
+      const aiStore = useAISuggestions()
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(aiStore.suggestions).toHaveLength(1)
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(1)
+      expect(aiStore.lowConfidenceSuggestions[0]?.confidenceScore).toBe(0.50)
+    })
+
+    it('filters out suggestions below the 0.70 confidence threshold before storing', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            choices: [{ message: { content: JSON.stringify({ suggestions: [
+              { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+              { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.50 },
+            ] }) } }],
+          }),
+        }),
+      )
+
+      const aiStore = useAISuggestions()
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(aiStore.suggestions).toHaveLength(1)
+      expect(aiStore.suggestions[0]?.confidenceScore).toBeGreaterThanOrEqual(0.70)
+    })
+
+    it('counts all AI suggestions (incl. below-threshold) in totalGenerated', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            choices: [{ message: { content: JSON.stringify({ suggestions: [
+              { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+              { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.50 },
+            ] }) } }],
+          }),
+        }),
+      )
+
+      const aiStore = useAISuggestions()
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(aiStore.totalGenerated).toBe(2)
+    })
+
+    it('accumulates totalGenerated across multiple generateSuggestions calls', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: JSON.stringify({ suggestions: [
+            { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+            { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
+          ] }) } }],
+        }),
+      }
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse))
+
+      const aiStore = useAISuggestions()
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+      expect(aiStore.totalGenerated).toBe(2)
+
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+      expect(aiStore.totalGenerated).toBe(4)
     })
   })
 })

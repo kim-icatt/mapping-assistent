@@ -6,6 +6,8 @@ import type { AISuggestionAccepted } from '@/domain/events/AISuggestionAccepted'
 import type { AISuggestionRejected } from '@/domain/events/AISuggestionRejected'
 import { useMappings } from '@/composables/useMappings'
 
+export const CONFIDENCE_THRESHOLD = 0.70
+
 export class AIServiceError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
     super(message)
@@ -28,8 +30,12 @@ function flattenFields(fields: SchemaField[]): SchemaField[] {
 
 export const useAISuggestions = defineStore('aiSuggestions', () => {
   const suggestions = ref<AiSuggestion[]>([])
+  const lowConfidenceSuggestions = ref<AiSuggestion[]>([])
   const isLoading = ref(false)
   const error = ref<AIServiceError | null>(null)
+  const accepted = ref(0)
+  const rejected = ref(0)
+  const totalGenerated = ref(0)
 
   async function generateSuggestions(
     sourceFields: SchemaField[],
@@ -39,9 +45,11 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       sourceCount: sourceFields.length,
       targetCount: unmappedTargetFields.length,
     })
+    suggestions.value = []
+    lowConfidenceSuggestions.value = []
+
     if (unmappedTargetFields.length === 0) {
       console.log('[AI] No unmapped target fields — skipping API call')
-      suggestions.value = []
       return []
     }
 
@@ -120,7 +128,9 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       }, [])
 
       console.log('[AI] Suggestions', resolved.map((s) => ({ sourceFieldId: s.sourceFieldId, targetFieldId: s.targetFieldId, score: s.confidenceScore })))
-      suggestions.value = resolved
+      totalGenerated.value += resolved.length
+      suggestions.value = resolved.filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
+      lowConfidenceSuggestions.value = resolved.filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
 
       const event: AISuggestionsGenerated = {
         type: 'AISuggestionsGenerated',
@@ -140,13 +150,20 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   }
 
   function acceptSuggestion(id: string): void {
-    const suggestion = suggestions.value.find((s) => s.id === id)
+    const inHigh = suggestions.value.find((s) => s.id === id)
+    const inLow = !inHigh && lowConfidenceSuggestions.value.find((s) => s.id === id)
+    const suggestion = inHigh ?? inLow
     if (!suggestion) return
 
     const mappingsStore = useMappings()
     mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId })
 
-    suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    if (inHigh) {
+      suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    } else {
+      lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
+    }
+    accepted.value++
 
     const event: AISuggestionAccepted = {
       type: 'AISuggestionAccepted',
@@ -159,10 +176,17 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   }
 
   function rejectSuggestion(id: string): void {
-    const suggestion = suggestions.value.find((s) => s.id === id)
+    const inHigh = suggestions.value.find((s) => s.id === id)
+    const inLow = !inHigh && lowConfidenceSuggestions.value.find((s) => s.id === id)
+    const suggestion = inHigh ?? inLow
     if (!suggestion) return
 
-    suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    if (inHigh) {
+      suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    } else {
+      lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
+    }
+    rejected.value++
 
     const event: AISuggestionRejected = {
       type: 'AISuggestionRejected',
@@ -173,5 +197,5 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     window.dispatchEvent(new CustomEvent('AISuggestionRejected', { detail: event }))
   }
 
-  return { suggestions, isLoading, error, generateSuggestions, acceptSuggestion, rejectSuggestion }
+  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, generateSuggestions, acceptSuggestion, rejectSuggestion }
 })

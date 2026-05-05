@@ -1,10 +1,11 @@
 <script setup lang="ts">
-defineProps<{
+withDefaults(defineProps<{
   suggestionId: string
   sourceName: string
   targetName: string
   confidenceScore: number
-}>()
+  interactive?: boolean
+}>(), { interactive: true })
 
 const emit = defineEmits<{
   accept: [id: string]
@@ -36,7 +37,7 @@ function badge(score: number) {
         {{ badge(confidenceScore).label }} · {{ Math.round(confidenceScore * 100) }}%
       </span>
     </div>
-    <div class="flex gap-2">
+    <div v-if="interactive" class="flex gap-2">
       <button
         class="flex-1 px-3 py-1 text-xs font-medium bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
         data-testid="accept-button"

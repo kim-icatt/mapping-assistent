@@ -48,4 +48,18 @@ describe('AISuggestionCard', () => {
     await wrapper.find('[data-testid="reject-button"]').trigger('click')
     expect(wrapper.emitted('reject')).toEqual([['sug-1']])
   })
+
+  it('hides accept and reject buttons when interactive is false', () => {
+    const wrapper = mount(AISuggestionCard, {
+      props: { suggestionId: 'sug-1', sourceName: 'a', targetName: 'b', confidenceScore: 0.60, interactive: false },
+    })
+    expect(wrapper.find('[data-testid="accept-button"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="reject-button"]').exists()).toBe(false)
+  })
+
+  it('shows accept and reject buttons by default', () => {
+    const wrapper = mountCard()
+    expect(wrapper.find('[data-testid="accept-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="reject-button"]').exists()).toBe(true)
+  })
 })
