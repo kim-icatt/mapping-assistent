@@ -14,23 +14,24 @@ const unmappedTargetFields: SchemaField[] = [
   { id: 'tgt-2', name: 'last_name', path: 'last_name', dataType: 'string', required: true },
 ]
 
-const mockClaudeResponse = {
-  content: [
+const mockOpenRouterResponse = {
+  choices: [
     {
-      type: 'text',
-      text: JSON.stringify({
-        suggestions: [
-          { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
-          { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
-        ],
-      }),
+      message: {
+        content: JSON.stringify({
+          suggestions: [
+            { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+            { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
+          ],
+        }),
+      },
     },
   ],
 }
 
 beforeEach(() => {
   setActivePinia(createPinia())
-  vi.stubEnv('VITE_CLAUDE_API_KEY', 'test-api-key')
+  vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-api-key')
 })
 
 afterEach(() => {
@@ -43,7 +44,7 @@ describe('useAISuggestions', () => {
   it('returns a list of AI suggestions when source and target fields are provided', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockClaudeResponse) }),
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) }),
     )
 
     const store = useAISuggestions()
@@ -56,7 +57,7 @@ describe('useAISuggestions', () => {
   it('each suggestion contains a sourceFieldId, targetFieldId, and confidenceScore', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockClaudeResponse) }),
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) }),
     )
 
     const store = useAISuggestions()
@@ -98,7 +99,7 @@ describe('useAISuggestions', () => {
     )
   })
 
-  it('does not store any suggestions when the service is unreachable', async () => {
+  it('does not store any suggestions when the service is unreachable (fresh store)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     const store = useAISuggestions()
@@ -109,6 +110,66 @@ describe('useAISuggestions', () => {
     }
 
     expect(store.suggestions).toHaveLength(0)
+  })
+
+  it('preserves existing suggestions when the service is unreachable on retry', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    const store = useAISuggestions()
+    store.suggestions = [
+      { id: 'existing', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+    ]
+
+    try {
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+    } catch {
+      // expected
+    }
+
+    expect(store.suggestions).toHaveLength(1)
+  })
+
+  it('sets the error ref when the AI service is unreachable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    const store = useAISuggestions()
+    try {
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+    } catch {
+      // expected
+    }
+
+    expect(store.error).toBeInstanceOf(AIServiceError)
+  })
+
+  it('sets the error ref when the API returns a non-OK status', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 429, json: () => Promise.resolve({}) }),
+    )
+
+    const store = useAISuggestions()
+    try {
+      await store.generateSuggestions(sourceFields, unmappedTargetFields)
+    } catch {
+      // expected
+    }
+
+    expect(store.error).toBeInstanceOf(AIServiceError)
+  })
+
+  it('clears the error ref before a new generation attempt', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockOpenRouterResponse) }),
+    )
+
+    const store = useAISuggestions()
+    store.error = new AIServiceError('previous error')
+
+    await store.generateSuggestions(sourceFields, unmappedTargetFields)
+
+    expect(store.error).toBeNull()
   })
 
   it('throws AIServiceError when the API returns a non-OK status', async () => {
