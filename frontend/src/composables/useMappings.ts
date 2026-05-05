@@ -41,6 +41,7 @@ export const useMappings = defineStore('mappings', () => {
 
   function removeMapping(id: string): void {
     mappings.value = mappings.value.filter((m) => m.id !== id)
+    if (selectedMappingId.value === id) selectedMappingId.value = null
   }
 
   return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping }
