@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
@@ -9,7 +9,6 @@ const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, 
 const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
-const bothSchemasLoaded = computed(() => sourceFields.value.length > 0 && targetFields.value.length > 0)
 
 async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }

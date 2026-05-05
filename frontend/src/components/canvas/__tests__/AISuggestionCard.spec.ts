@@ -2,19 +2,19 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AISuggestionCard from '../AISuggestionCard.vue'
 
-function mountCard(props: { sourceName: string; targetName: string; confidenceScore: number }) {
+function mountCard(props = { suggestionId: 'sug-1', sourceName: 'customerId', targetName: 'client_id', confidenceScore: 0.97 }) {
   return mount(AISuggestionCard, { props })
 }
 
 describe('AISuggestionCard', () => {
   it('displays source and target field names', () => {
-    const wrapper = mountCard({ sourceName: 'customerId', targetName: 'client_id', confidenceScore: 0.97 })
+    const wrapper = mountCard()
     expect(wrapper.text()).toContain('customerId')
     expect(wrapper.text()).toContain('client_id')
   })
 
   it('shows Hoog badge for score ≥ 0.8', () => {
-    const wrapper = mountCard({ sourceName: 'a', targetName: 'b', confidenceScore: 0.97 })
+    const wrapper = mountCard()
     const badge = wrapper.find('[data-testid="confidence-badge"]')
     expect(badge.text()).toContain('Hoog')
     expect(badge.text()).toContain('97%')
@@ -22,7 +22,7 @@ describe('AISuggestionCard', () => {
   })
 
   it('shows Middel badge for score 0.5–0.79', () => {
-    const wrapper = mountCard({ sourceName: 'a', targetName: 'b', confidenceScore: 0.72 })
+    const wrapper = mountCard({ suggestionId: 'sug-1', sourceName: 'a', targetName: 'b', confidenceScore: 0.72 })
     const badge = wrapper.find('[data-testid="confidence-badge"]')
     expect(badge.text()).toContain('Middel')
     expect(badge.text()).toContain('72%')
@@ -30,10 +30,22 @@ describe('AISuggestionCard', () => {
   })
 
   it('shows Laag badge for score < 0.5', () => {
-    const wrapper = mountCard({ sourceName: 'a', targetName: 'b', confidenceScore: 0.3 })
+    const wrapper = mountCard({ suggestionId: 'sug-1', sourceName: 'a', targetName: 'b', confidenceScore: 0.3 })
     const badge = wrapper.find('[data-testid="confidence-badge"]')
     expect(badge.text()).toContain('Laag')
     expect(badge.text()).toContain('30%')
     expect(badge.classes().join(' ')).toMatch(/red/)
+  })
+
+  it('emits accept with the suggestion id when Accepteer is clicked', async () => {
+    const wrapper = mountCard()
+    await wrapper.find('[data-testid="accept-button"]').trigger('click')
+    expect(wrapper.emitted('accept')).toEqual([['sug-1']])
+  })
+
+  it('emits reject with the suggestion id when Afwijzen is clicked', async () => {
+    const wrapper = mountCard()
+    await wrapper.find('[data-testid="reject-button"]').trigger('click')
+    expect(wrapper.emitted('reject')).toEqual([['sug-1']])
   })
 })

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAISuggestions, AIServiceError } from '../useAISuggestions'
+import { useMappings } from '../useMappings'
 import type { SchemaField } from '@/types'
 
 const sourceFields: SchemaField[] = [
@@ -135,5 +136,80 @@ describe('useAISuggestions', () => {
     await expect(store.generateSuggestions(sourceFields, unmappedTargetFields)).rejects.toThrow(
       AIServiceError,
     )
+  })
+
+  // Scenario: Administrator accepts an AI suggestion
+  describe('acceptSuggestion', () => {
+    it('creates a field mapping and removes the suggestion from the list', () => {
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+
+      aiStore.acceptSuggestion('sug-1')
+
+      expect(aiStore.suggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(1)
+      expect(mappingsStore.mappings[0]).toMatchObject({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    })
+
+    it('dispatches AISuggestionAccepted event', () => {
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+      const events: CustomEvent[] = []
+      window.addEventListener('AISuggestionAccepted', (e) => events.push(e as CustomEvent))
+
+      aiStore.acceptSuggestion('sug-1')
+
+      expect(events).toHaveLength(1)
+      expect(events[0]?.detail).toMatchObject({ type: 'AISuggestionAccepted', sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    })
+
+    it('does not create a duplicate mapping', () => {
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+
+      aiStore.acceptSuggestion('sug-1')
+
+      expect(mappingsStore.mappings).toHaveLength(1)
+      expect(aiStore.suggestions).toHaveLength(0)
+    })
+  })
+
+  // Scenario: Administrator rejects an AI suggestion
+  describe('rejectSuggestion', () => {
+    it('removes the suggestion from the list without creating a mapping', () => {
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+
+      aiStore.rejectSuggestion('sug-1')
+
+      expect(aiStore.suggestions).toHaveLength(0)
+      expect(mappingsStore.mappings).toHaveLength(0)
+    })
+
+    it('dispatches AISuggestionRejected event', () => {
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.95, status: 'pending' },
+      ]
+      const events: CustomEvent[] = []
+      window.addEventListener('AISuggestionRejected', (e) => events.push(e as CustomEvent))
+
+      aiStore.rejectSuggestion('sug-1')
+
+      expect(events).toHaveLength(1)
+      expect(events[0]?.detail).toMatchObject({ type: 'AISuggestionRejected', sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    })
   })
 })

@@ -74,4 +74,37 @@ describe('AISuggestionPanel', () => {
     await wrapper.find('[data-testid="generate-button"]').trigger('click')
     expect(spy).toHaveBeenCalledOnce()
   })
+
+  // Scenario: Accepted suggestion appears on the canvas (mapping store updated)
+  it('creates a field mapping when Accepteer is clicked on a suggestion card', async () => {
+    const wrapper = mountPanel()
+    const aiStore = useAISuggestions()
+    const mappingsStore = useMappings()
+    aiStore.suggestions = [
+      { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
+    ] as AiSuggestion[]
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="accept-button"]').trigger('click')
+
+    expect(mappingsStore.mappings).toHaveLength(1)
+    expect(mappingsStore.mappings[0]).toMatchObject({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+    expect(aiStore.suggestions).toHaveLength(0)
+  })
+
+  // Scenario: Rejected suggestion disappears
+  it('removes the suggestion when Afwijzen is clicked', async () => {
+    const wrapper = mountPanel()
+    const aiStore = useAISuggestions()
+    const mappingsStore = useMappings()
+    aiStore.suggestions = [
+      { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
+    ] as AiSuggestion[]
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="reject-button"]').trigger('click')
+
+    expect(aiStore.suggestions).toHaveLength(0)
+    expect(mappingsStore.mappings).toHaveLength(0)
+  })
 })
