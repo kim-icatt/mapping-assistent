@@ -16,8 +16,10 @@ export function getValidationStatus(source: SchemaField, target: SchemaField): V
   if (INCOMPATIBLE_PAIRS.has(key)) return 'incompatible'
 
   if (source.dataType === 'string' && target.dataType === 'string') {
-    if (source.maxLength !== undefined && target.maxLength !== undefined && source.maxLength > target.maxLength) {
-      return 'constrained'
+    if (target.maxLength !== undefined) {
+      if (source.maxLength === undefined || source.maxLength > target.maxLength) {
+        return 'constrained'
+      }
     }
   }
 
@@ -27,8 +29,10 @@ export function getValidationStatus(source: SchemaField, target: SchemaField): V
 }
 
 export function getConstraintReason(source: SchemaField, target: SchemaField): string {
-  if (source.dataType === 'string' && target.dataType === 'string' &&
-      source.maxLength !== undefined && target.maxLength !== undefined) {
+  if (source.dataType === 'string' && target.dataType === 'string' && target.maxLength !== undefined) {
+    if (source.maxLength === undefined) {
+      return `Bronveld heeft geen maximale lengte, doelveld is beperkt tot ${target.maxLength} — mogelijke afkapping`
+    }
     return `Bronveld is langer dan doelveld (max. ${source.maxLength} vs ${target.maxLength}) — afkapping vereist`
   }
   return `${source.dataType} naar ${target.dataType} vereist transformatie`

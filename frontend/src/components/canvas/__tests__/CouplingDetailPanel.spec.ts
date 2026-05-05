@@ -71,6 +71,20 @@ describe('CouplingDetailPanel', () => {
     expect(wrapper.find('[data-testid="transformation-placeholder"]').exists()).toBe(true)
   })
 
+  // Scenario: Detail panel shows constraint reason for unbounded source → bounded target
+  it('shows constraint reason and transformation placeholder when source has no maxLength but target does', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    // src-1: string no maxLength, tgt-2: string maxLength 50 → constrained
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+    store.selectMapping(mapping!.id)
+    await wrapper.vm.$nextTick()
+
+    const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
+    expect(validationSection.text()).toMatch(/50|afkapping/i)
+    expect(wrapper.find('[data-testid="transformation-placeholder"]').exists()).toBe(true)
+  })
+
   // Scenario: Detail panel shows incompatibility reason for an incompatible coupling
   it('shows incompatibility reason and remap note for an incompatible coupling', async () => {
     const wrapper = mountPanel()
