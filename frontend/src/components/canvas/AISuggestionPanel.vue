@@ -121,72 +121,91 @@ async function generate() {
     <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
   </div>
 
-  <!-- Empty: all target fields already mapped -->
-  <div
-    v-else-if="zaakUnmappedTargetFields.length === 0"
-    class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 text-slate-400 text-sm"
-    data-testid="empty-state"
-  >
-    <p>Geen ongemapte doelvelden.</p>
-  </div>
+  <template v-else>
+    <!-- Error banner (shown above suggestions when present) -->
+    <div
+      v-if="aiStore.error"
+      class="shrink-0 flex flex-col gap-2 px-3 py-2.5 bg-red-50 border-b border-red-100 text-red-700 text-sm"
+      data-testid="error-state"
+    >
+      <p>AI-service niet beschikbaar. U kunt handmatig koppelen of opnieuw proberen.</p>
+      <button
+        v-if="zaakUnmappedTargetFields.length > 0"
+        class="self-start px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded"
+        data-testid="generate-button"
+        @click="generate"
+      >
+        Opnieuw genereren
+      </button>
+    </div>
 
-  <!-- Suggestions list -->
-  <div v-else-if="aiStore.suggestions.length > 0 || aiStore.lowConfidenceSuggestions.length > 0" class="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
-    <!-- Generate again button when only low-confidence suggestions remain -->
-    <div v-if="aiStore.suggestions.length === 0 && zaakUnmappedTargetFields.length > 0" class="flex justify-center mb-1">
+    <!-- Empty: all target fields already mapped (only without error) -->
+    <div
+      v-if="zaakUnmappedTargetFields.length === 0 && !aiStore.error"
+      class="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 text-slate-400 text-sm"
+      data-testid="empty-state"
+    >
+      <p>Geen ongemapte doelvelden.</p>
+    </div>
+
+    <!-- Suggestions list -->
+    <div v-else-if="resolvedSuggestions.length > 0 || resolvedLowConfidence.length > 0" class="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
+      <!-- Generate again button when only low-confidence suggestions remain -->
+      <div v-if="aiStore.suggestions.length === 0 && zaakUnmappedTargetFields.length > 0" class="flex justify-center mb-1">
+        <button
+          class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
+          data-testid="generate-button"
+          @click="generate"
+        >
+          Genereer suggesties
+        </button>
+      </div>
+
+      <AISuggestionCard
+        v-for="s in resolvedSuggestions"
+        :key="s.id"
+        :suggestion-id="s.id"
+        :source-name="s.sourceName"
+        :target-name="s.targetName"
+        :confidence-score="s.confidenceScore"
+        @accept="aiStore.acceptSuggestion($event)"
+        @reject="aiStore.rejectSuggestion($event)"
+      />
+
+      <!-- Low-confidence collapsible -->
+      <div v-if="resolvedLowConfidence.length > 0" class="mt-1">
+        <button
+          class="w-full flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 py-1"
+          data-testid="low-confidence-toggle"
+          @click="showLowConfidence = !showLowConfidence"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 transition-transform" :class="showLowConfidence ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          {{ resolvedLowConfidence.length }} lage zekerheid (&lt; 70%)
+        </button>
+        <div v-if="showLowConfidence" class="flex flex-col gap-2 mt-1" data-testid="low-confidence-list">
+          <AISuggestionCard
+            v-for="s in resolvedLowConfidence"
+            :key="s.id"
+            :suggestion-id="s.id"
+            :source-name="s.sourceName"
+            :target-name="s.targetName"
+            :confidence-score="s.confidenceScore"
+            @accept="aiStore.acceptSuggestion($event)"
+            @reject="aiStore.rejectSuggestion($event)"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Default: generate button (no error, no suggestions, unmapped fields exist) -->
+    <div v-else-if="!aiStore.error" class="flex-1 flex items-center justify-center py-10">
       <button
         class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
         data-testid="generate-button"
         @click="generate"
       >
-        Genereer suggesties
+        {{ aiStore.totalGenerated > 0 ? 'Opnieuw genereren' : 'Genereer suggesties' }}
       </button>
     </div>
-
-    <AISuggestionCard
-      v-for="s in resolvedSuggestions"
-      :key="s.id"
-      :suggestion-id="s.id"
-      :source-name="s.sourceName"
-      :target-name="s.targetName"
-      :confidence-score="s.confidenceScore"
-      @accept="aiStore.acceptSuggestion($event)"
-      @reject="aiStore.rejectSuggestion($event)"
-    />
-
-    <!-- Low-confidence collapsible -->
-    <div v-if="resolvedLowConfidence.length > 0" class="mt-1">
-      <button
-        class="w-full flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 py-1"
-        data-testid="low-confidence-toggle"
-        @click="showLowConfidence = !showLowConfidence"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 transition-transform" :class="showLowConfidence ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        {{ resolvedLowConfidence.length }} lage zekerheid (&lt; 70%)
-      </button>
-      <div v-if="showLowConfidence" class="flex flex-col gap-2 mt-1" data-testid="low-confidence-list">
-        <AISuggestionCard
-          v-for="s in resolvedLowConfidence"
-          :key="s.id"
-          :suggestion-id="s.id"
-          :source-name="s.sourceName"
-          :target-name="s.targetName"
-          :confidence-score="s.confidenceScore"
-          @accept="aiStore.acceptSuggestion($event)"
-          @reject="aiStore.rejectSuggestion($event)"
-        />
-      </div>
-    </div>
-  </div>
-
-  <!-- Default: generate button -->
-  <div v-else class="flex-1 flex items-center justify-center py-10">
-    <button
-      class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
-      data-testid="generate-button"
-      @click="generate"
-    >
-      Genereer suggesties
-    </button>
-  </div>
+  </template>
 </template>

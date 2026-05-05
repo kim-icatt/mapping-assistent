@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AISuggestionPanel from '../AISuggestionPanel.vue'
-import { useAISuggestions } from '@/composables/useAISuggestions'
+import { useAISuggestions, AIServiceError } from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
 import type { SchemaField, AiSuggestion } from '@/types'
 
@@ -73,6 +73,79 @@ describe('AISuggestionPanel', () => {
     const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
     await wrapper.find('[data-testid="generate-button"]').trigger('click')
     expect(spy).toHaveBeenCalledOnce()
+  })
+
+  // Scenario: AI service unreachable
+  describe('error state', () => {
+    it('shows an inline error message when the AI service is unreachable', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIServiceError('AI service unreachable')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
+    })
+
+    it('does not show the loading state when an error is present', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIServiceError('AI service unreachable')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="loading-state"]').exists()).toBe(false)
+    })
+
+    it('shows "Opnieuw genereren" button in error state when unmapped fields exist', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIServiceError('AI service unreachable')
+      await wrapper.vm.$nextTick()
+      const btn = wrapper.find('[data-testid="generate-button"]')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text()).toBe('Opnieuw genereren')
+    })
+
+    it('does not show the generate button in error state when no unmapped fields remain', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const mappingsStore = useMappings()
+      mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+      mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
+      aiStore.error = new AIServiceError('AI service unreachable')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="generate-button"]').exists()).toBe(false)
+    })
+
+    it('shows existing suggestions below the error banner (preserve on error)', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: '1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.error = new AIServiceError('AI service unreachable')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
+      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
+    })
+
+    it('calls generateSuggestions when retry button in error state is clicked', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIServiceError('AI service unreachable')
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      expect(spy).toHaveBeenCalledOnce()
+    })
+  })
+
+  // Scenario: All suggestions rejected — empty state with option to regenerate
+  it('shows "Opnieuw genereren" label on generate button after suggestions were generated', async () => {
+    const wrapper = mountPanel()
+    const aiStore = useAISuggestions()
+    aiStore.totalGenerated = 2
+    await wrapper.vm.$nextTick()
+    const btn = wrapper.find('[data-testid="generate-button"]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.text()).toBe('Opnieuw genereren')
   })
 
   // Scenario: Accepted suggestion appears on the canvas (mapping store updated)
