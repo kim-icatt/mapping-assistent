@@ -121,7 +121,7 @@ function cancelDelete() {
           class="shrink-0 text-slate-300 hover:text-red-500 transition-colors font-bold px-1 leading-none"
           data-testid="remove-mapping"
           aria-label="Verwijder koppeling"
-          @click="requestDelete(row.id)"
+          @click.stop="requestDelete(row.id)"
         >×</button>
       </div>
     </div>
