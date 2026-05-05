@@ -83,11 +83,13 @@ function cancelDelete() {
 
     <!-- Mapping rows -->
     <div v-else class="flex-1 overflow-y-auto divide-y divide-slate-100">
+      <!-- TODO task #44: replace this click handler with bidirectional canvas/row selection -->
       <div
         v-for="row in rows"
         :key="row.id"
-        class="flex items-center gap-2 px-3 py-2 text-sm"
+        class="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
         data-testid="mapping-row"
+        @click.stop="store.selectMapping(row.id)"
       >
         <!-- Source field -->
         <div class="flex-1 min-w-0 flex items-center gap-1.5">
