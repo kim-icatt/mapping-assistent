@@ -102,7 +102,7 @@ jobs:
                   }
                 }
               }' -f pid="$PROJECT_ID" \
-              | jq -r --arg iid "$ISSUE_ID" \
+              --jq --arg iid "$ISSUE_ID" \
               '.data.node.items.nodes[] | select(.content.id==$iid) | .id')
 
             if [ -z "$ITEM_ID" ]; then
