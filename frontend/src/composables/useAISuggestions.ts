@@ -6,6 +6,8 @@ import type { AISuggestionAccepted } from '@/domain/events/AISuggestionAccepted'
 import type { AISuggestionRejected } from '@/domain/events/AISuggestionRejected'
 import { useMappings } from '@/composables/useMappings'
 
+export const CONFIDENCE_THRESHOLD = 0.70
+
 export class AIServiceError extends Error {
   constructor(message: string, public readonly cause?: unknown) {
     super(message)
@@ -28,6 +30,7 @@ function flattenFields(fields: SchemaField[]): SchemaField[] {
 
 export const useAISuggestions = defineStore('aiSuggestions', () => {
   const suggestions = ref<AiSuggestion[]>([])
+  const lowConfidenceSuggestions = ref<AiSuggestion[]>([])
   const isLoading = ref(false)
   const error = ref<AIServiceError | null>(null)
   const accepted = ref(0)
@@ -123,8 +126,9 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       }, [])
 
       console.log('[AI] Suggestions', resolved.map((s) => ({ sourceFieldId: s.sourceFieldId, targetFieldId: s.targetFieldId, score: s.confidenceScore })))
-      suggestions.value = resolved
       totalGenerated.value += resolved.length
+      suggestions.value = resolved.filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
+      lowConfidenceSuggestions.value = resolved.filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
 
       const event: AISuggestionsGenerated = {
         type: 'AISuggestionsGenerated',
@@ -179,5 +183,5 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     window.dispatchEvent(new CustomEvent('AISuggestionRejected', { detail: event }))
   }
 
-  return { suggestions, isLoading, error, accepted, rejected, totalGenerated, generateSuggestions, acceptSuggestion, rejectSuggestion }
+  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, generateSuggestions, acceptSuggestion, rejectSuggestion }
 })

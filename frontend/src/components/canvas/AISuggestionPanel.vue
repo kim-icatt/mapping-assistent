@@ -35,21 +35,28 @@ const zaakUnmappedTargetFields = computed(() =>
   unmappedTargetFields.value.filter((f) => f.path.startsWith('Zaak')).slice(0, 5),
 )
 
-const CONFIDENCE_THRESHOLD = 0.70
-
 const resolvedSuggestions = computed(() => {
   const allSource = flattenFields(props.sourceFields)
-  return aiStore.suggestions
-    .filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
-    .map((s) => ({
-      id: s.id,
-      sourceName: allSource.find((f) => f.id === s.sourceFieldId)?.name ?? s.sourceFieldId,
-      targetName: props.targetFields.find((f) => f.id === s.targetFieldId)?.name ?? s.targetFieldId,
-      confidenceScore: s.confidenceScore,
-    }))
+  return aiStore.suggestions.map((s) => ({
+    id: s.id,
+    sourceName: allSource.find((f) => f.id === s.sourceFieldId)?.name ?? s.sourceFieldId,
+    targetName: props.targetFields.find((f) => f.id === s.targetFieldId)?.name ?? s.targetFieldId,
+    confidenceScore: s.confidenceScore,
+  }))
 })
 
 const showStatsDialog = ref(false)
+const showLowConfidence = ref(false)
+
+const resolvedLowConfidence = computed(() => {
+  const allSource = flattenFields(props.sourceFields)
+  return aiStore.lowConfidenceSuggestions.map((s) => ({
+    id: s.id,
+    sourceName: allSource.find((f) => f.id === s.sourceFieldId)?.name ?? s.sourceFieldId,
+    targetName: props.targetFields.find((f) => f.id === s.targetFieldId)?.name ?? s.targetFieldId,
+    confidenceScore: s.confidenceScore,
+  }))
+})
 
 async function generate() {
   await aiStore.generateSuggestions(zaakSourceFields.value, zaakUnmappedTargetFields.value)
@@ -57,10 +64,10 @@ async function generate() {
 </script>
 
 <template>
-  <!-- Stats button -->
-  <div v-if="aiStore.totalGenerated > 0" class="relative">
+  <!-- Stats button row -->
+  <div v-if="aiStore.totalGenerated > 0" class="flex justify-end px-2 py-1 border-b border-slate-100 shrink-0">
     <button
-      class="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 rounded"
+      class="p-1 text-slate-400 hover:text-slate-600 rounded"
       data-testid="stats-button"
       title="Acceptatiestatistieken"
       @click="showStatsDialog = !showStatsDialog"
@@ -70,34 +77,39 @@ async function generate() {
       </svg>
     </button>
 
-    <!-- Stats dialog -->
-    <div
-      v-if="showStatsDialog"
-      class="absolute top-8 right-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 min-w-[180px] text-sm"
-      data-testid="stats-dialog"
-    >
-      <p class="font-semibold text-slate-700 mb-2">Acceptatiestatistieken</p>
-      <ul class="flex flex-col gap-1 text-slate-600">
-        <li class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-slate-300 inline-block" />
-          {{ aiStore.totalGenerated }} gegenereerd
-        </li>
-        <li class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-green-500 inline-block" />
-          {{ aiStore.accepted }} geaccepteerd
-        </li>
-        <li class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-red-500 inline-block" />
-          {{ aiStore.rejected }} afgewezen
-        </li>
-      </ul>
-      <button
-        class="mt-3 text-xs text-slate-400 hover:text-slate-600"
-        @click="showStatsDialog = false"
+    <Teleport to="body">
+      <div
+        v-if="showStatsDialog"
+        class="fixed inset-0 z-50 flex items-start justify-end pt-16 pr-4 pointer-events-none"
       >
-        Sluiten
-      </button>
-    </div>
+        <div
+          class="pointer-events-auto bg-white border border-slate-200 rounded-lg shadow-xl p-4 min-w-[200px] text-sm"
+          data-testid="stats-dialog"
+        >
+          <p class="font-semibold text-slate-700 mb-2">Acceptatiestatistieken</p>
+          <ul class="flex flex-col gap-1.5 text-slate-600">
+            <li class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-slate-300 inline-block" />
+              {{ aiStore.totalGenerated }} gegenereerd
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-green-500 inline-block" />
+              {{ aiStore.accepted }} geaccepteerd
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-red-500 inline-block" />
+              {{ aiStore.rejected }} afgewezen
+            </li>
+          </ul>
+          <button
+            class="mt-3 text-xs text-slate-400 hover:text-slate-600"
+            @click="showStatsDialog = false"
+          >
+            Sluiten
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 
   <!-- Loading -->
@@ -119,7 +131,7 @@ async function generate() {
   </div>
 
   <!-- Suggestions list -->
-  <div v-else-if="aiStore.suggestions.length > 0" class="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
+  <div v-else-if="aiStore.suggestions.length > 0 || aiStore.lowConfidenceSuggestions.length > 0" class="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
     <AISuggestionCard
       v-for="s in resolvedSuggestions"
       :key="s.id"
@@ -130,6 +142,29 @@ async function generate() {
       @accept="aiStore.acceptSuggestion($event)"
       @reject="aiStore.rejectSuggestion($event)"
     />
+
+    <!-- Low-confidence collapsible -->
+    <div v-if="resolvedLowConfidence.length > 0" class="mt-1">
+      <button
+        class="w-full flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 py-1"
+        data-testid="low-confidence-toggle"
+        @click="showLowConfidence = !showLowConfidence"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 transition-transform" :class="showLowConfidence ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        {{ resolvedLowConfidence.length }} lage zekerheid (&lt; 70%)
+      </button>
+      <div v-if="showLowConfidence" class="flex flex-col gap-2 mt-1" data-testid="low-confidence-list">
+        <AISuggestionCard
+          v-for="s in resolvedLowConfidence"
+          :key="s.id"
+          :suggestion-id="s.id"
+          :source-name="s.sourceName"
+          :target-name="s.targetName"
+          :confidence-score="s.confidenceScore"
+          :interactive="false"
+        />
+      </div>
+    </div>
   </div>
 
   <!-- Default: generate button -->

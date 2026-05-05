@@ -16,7 +16,7 @@ const targetFields: SchemaField[] = [
 
 function mountPanel(props = { sourceFields, targetFields }) {
   return mount(AISuggestionPanel, {
-    global: { plugins: [createPinia()] },
+    global: { plugins: [createPinia()], stubs: { Teleport: true } },
     props,
   })
 }
@@ -200,40 +200,99 @@ describe('AISuggestionPanel', () => {
     })
   })
 
-  // Confidence threshold filtering
+  // Confidence threshold: panel renders all store suggestions (filtering is store's responsibility)
   describe('confidence threshold', () => {
-    it('does not render suggestions with confidenceScore below 0.70', async () => {
+    it('renders all suggestions present in the store', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
-        { id: 'low', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.65, status: 'pending' },
+        { id: 'a', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.90, status: 'pending' },
+        { id: 'b', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.75, status: 'pending' },
       ] as AiSuggestion[]
       await wrapper.vm.$nextTick()
 
-      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(0)
+      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(2)
+    })
+  })
+
+  // Low-confidence collapsible section
+  describe('low confidence section', () => {
+    it('shows the low-confidence toggle button when lowConfidenceSuggestions exist', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'a', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.90, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'b', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.55, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="low-confidence-toggle"]').exists()).toBe(true)
     })
 
-    it('renders suggestions with confidenceScore of exactly 0.70', async () => {
+    it('does not show the toggle when there are no low-confidence suggestions', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
-        { id: 'threshold', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.70, status: 'pending' },
+        { id: 'a', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.90, status: 'pending' },
       ] as AiSuggestion[]
       await wrapper.vm.$nextTick()
 
-      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
+      expect(wrapper.find('[data-testid="low-confidence-toggle"]').exists()).toBe(false)
     })
 
-    it('only renders suggestions at or above the 0.70 threshold', async () => {
+    it('expands the low-confidence section when toggle is clicked', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
-        { id: 'high', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.90, status: 'pending' },
-        { id: 'low', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.50, status: 'pending' },
+        { id: 'a', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.90, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'b', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.55, status: 'pending' },
       ] as AiSuggestion[]
       await wrapper.vm.$nextTick()
 
-      expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
+      await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="low-confidence-list"]').exists()).toBe(true)
+    })
+
+    it('collapses the section when toggle is clicked again', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'b', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.55, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.suggestions = [
+        { id: 'a', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.90, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="low-confidence-list"]').exists()).toBe(false)
+    })
+
+    it('low-confidence cards do not have accept or reject buttons', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [] as AiSuggestion[]
+      aiStore.lowConfidenceSuggestions = [
+        { id: 'b', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.55, status: 'pending' },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      const list = wrapper.find('[data-testid="low-confidence-list"]')
+      expect(list.find('[data-testid="accept-button"]').exists()).toBe(false)
+      expect(list.find('[data-testid="reject-button"]').exists()).toBe(false)
     })
   })
 })

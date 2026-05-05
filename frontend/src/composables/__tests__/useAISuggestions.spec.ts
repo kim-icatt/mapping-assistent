@@ -279,6 +279,72 @@ describe('useAISuggestions', () => {
       expect(aiStore.rejected).toBe(0)
     })
 
+    it('stores below-threshold suggestions in lowConfidenceSuggestions', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            choices: [{ message: { content: JSON.stringify({ suggestions: [
+              { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+              { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.50 },
+            ] }) } }],
+          }),
+        }),
+      )
+
+      const aiStore = useAISuggestions()
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(aiStore.suggestions).toHaveLength(1)
+      expect(aiStore.lowConfidenceSuggestions).toHaveLength(1)
+      expect(aiStore.lowConfidenceSuggestions[0]?.confidenceScore).toBe(0.50)
+    })
+
+    it('filters out suggestions below the 0.70 confidence threshold before storing', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            choices: [{ message: { content: JSON.stringify({ suggestions: [
+              { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+              { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.50 },
+            ] }) } }],
+          }),
+        }),
+      )
+
+      const aiStore = useAISuggestions()
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(aiStore.suggestions).toHaveLength(1)
+      expect(aiStore.suggestions[0]?.confidenceScore).toBeGreaterThanOrEqual(0.70)
+    })
+
+    it('counts all AI suggestions (incl. below-threshold) in totalGenerated', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () => Promise.resolve({
+            choices: [{ message: { content: JSON.stringify({ suggestions: [
+              { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+              { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.50 },
+            ] }) } }],
+          }),
+        }),
+      )
+
+      const aiStore = useAISuggestions()
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+
+      expect(aiStore.totalGenerated).toBe(2)
+    })
+
     it('accumulates totalGenerated across multiple generateSuggestions calls', async () => {
       vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
       const mockResponse = {
