@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { SchemaField } from '@/types'
 import { useAISuggestions } from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
@@ -49,30 +49,55 @@ const resolvedSuggestions = computed(() => {
     }))
 })
 
+const showStatsDialog = ref(false)
+
 async function generate() {
   await aiStore.generateSuggestions(zaakSourceFields.value, zaakUnmappedTargetFields.value)
 }
 </script>
 
 <template>
-  <!-- Acceptance rate bar -->
-  <div
-    v-if="aiStore.totalGenerated > 0"
-    class="flex items-center gap-3 px-3 py-2 text-xs border-b border-slate-100 text-slate-500"
-    data-testid="acceptance-rate"
-  >
-    <span class="flex items-center gap-1">
-      <span class="w-2 h-2 rounded-full bg-slate-300 inline-block" />
-      {{ aiStore.totalGenerated }} suggesties
-    </span>
-    <span class="flex items-center gap-1">
-      <span class="w-2 h-2 rounded-full bg-green-500 inline-block" />
-      {{ aiStore.accepted }} geaccepteerd
-    </span>
-    <span class="flex items-center gap-1">
-      <span class="w-2 h-2 rounded-full bg-red-500 inline-block" />
-      {{ aiStore.rejected }} afgewezen
-    </span>
+  <!-- Stats button -->
+  <div v-if="aiStore.totalGenerated > 0" class="relative">
+    <button
+      class="absolute top-2 right-2 p-1 text-slate-400 hover:text-slate-600 rounded"
+      data-testid="stats-button"
+      title="Acceptatiestatistieken"
+      @click="showStatsDialog = !showStatsDialog"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 3v18h18" /><path d="M7 16l4-4 4 4 4-4" />
+      </svg>
+    </button>
+
+    <!-- Stats dialog -->
+    <div
+      v-if="showStatsDialog"
+      class="absolute top-8 right-2 z-10 bg-white border border-slate-200 rounded-lg shadow-lg p-4 min-w-[180px] text-sm"
+      data-testid="stats-dialog"
+    >
+      <p class="font-semibold text-slate-700 mb-2">Acceptatiestatistieken</p>
+      <ul class="flex flex-col gap-1 text-slate-600">
+        <li class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-slate-300 inline-block" />
+          {{ aiStore.totalGenerated }} gegenereerd
+        </li>
+        <li class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-green-500 inline-block" />
+          {{ aiStore.accepted }} geaccepteerd
+        </li>
+        <li class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-500 inline-block" />
+          {{ aiStore.rejected }} afgewezen
+        </li>
+      </ul>
+      <button
+        class="mt-3 text-xs text-slate-400 hover:text-slate-600"
+        @click="showStatsDialog = false"
+      >
+        Sluiten
+      </button>
+    </div>
   </div>
 
   <!-- Loading -->

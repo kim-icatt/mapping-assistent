@@ -108,9 +108,9 @@ describe('AISuggestionPanel', () => {
     expect(mappingsStore.mappings).toHaveLength(0)
   })
 
-  // Scenario: Rate is updated after acceptance
-  describe('acceptance rate display', () => {
-    it('shows acceptance rate bar when totalGenerated > 0', async () => {
+  // Acceptance rate: stats button and dialog
+  describe('acceptance rate dialog', () => {
+    it('shows stats button when totalGenerated > 0', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
@@ -119,10 +119,29 @@ describe('AISuggestionPanel', () => {
       aiStore.totalGenerated = 1
       await wrapper.vm.$nextTick()
 
-      expect(wrapper.find('[data-testid="acceptance-rate"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="stats-button"]').exists()).toBe(true)
     })
 
-    it('shows "0 geaccepteerd" and "0 afgewezen" initially', async () => {
+    it('does not show stats button before any suggestions are generated', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="stats-button"]').exists()).toBe(false)
+    })
+
+    it('opens the stats dialog when stats button is clicked', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.totalGenerated = 1
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="stats-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="stats-dialog"]').exists()).toBe(true)
+    })
+
+    it('shows "0 geaccepteerd" and "0 afgewezen" in dialog initially', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
@@ -130,31 +149,36 @@ describe('AISuggestionPanel', () => {
       ] as AiSuggestion[]
       aiStore.totalGenerated = 1
       await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="stats-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
 
-      const bar = wrapper.find('[data-testid="acceptance-rate"]')
-      expect(bar.text()).toContain('0 geaccepteerd')
-      expect(bar.text()).toContain('0 afgewezen')
+      const dialog = wrapper.find('[data-testid="stats-dialog"]')
+      expect(dialog.text()).toContain('0 geaccepteerd')
+      expect(dialog.text()).toContain('0 afgewezen')
     })
 
-    it('updates rate display after accepting a suggestion', async () => {
+    // Scenario: Rate is updated after acceptance
+    it('updates rate in dialog after accepting a suggestion', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
         { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
       ] as AiSuggestion[]
       aiStore.totalGenerated = 1
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="stats-button"]').trigger('click')
       await wrapper.vm.$nextTick()
 
       await wrapper.find('[data-testid="accept-button"]').trigger('click')
       await wrapper.vm.$nextTick()
 
-      const bar = wrapper.find('[data-testid="acceptance-rate"]')
-      expect(bar.text()).toContain('1 geaccepteerd')
-      expect(bar.text()).toContain('0 afgewezen')
+      const dialog = wrapper.find('[data-testid="stats-dialog"]')
+      expect(dialog.text()).toContain('1 geaccepteerd')
+      expect(dialog.text()).toContain('0 afgewezen')
     })
 
     // Scenario: Rate is updated after rejection
-    it('updates rate display after rejecting a suggestion', async () => {
+    it('updates rate in dialog after rejecting a suggestion', async () => {
       const wrapper = mountPanel()
       const aiStore = useAISuggestions()
       aiStore.suggestions = [
@@ -164,20 +188,15 @@ describe('AISuggestionPanel', () => {
       aiStore.totalGenerated = 2
       aiStore.accepted = 1
       await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="stats-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
 
       await wrapper.find('[data-testid="reject-button"]').trigger('click')
       await wrapper.vm.$nextTick()
 
-      const bar = wrapper.find('[data-testid="acceptance-rate"]')
-      expect(bar.text()).toContain('1 geaccepteerd')
-      expect(bar.text()).toContain('1 afgewezen')
-    })
-
-    it('does not show acceptance rate bar before any suggestions are generated', async () => {
-      const wrapper = mountPanel()
-      await wrapper.vm.$nextTick()
-
-      expect(wrapper.find('[data-testid="acceptance-rate"]').exists()).toBe(false)
+      const dialog = wrapper.find('[data-testid="stats-dialog"]')
+      expect(dialog.text()).toContain('1 geaccepteerd')
+      expect(dialog.text()).toContain('1 afgewezen')
     })
   })
 
