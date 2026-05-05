@@ -30,13 +30,24 @@ function typeOf(dataType: string) {
   return typeConfig[dataType] ?? FALLBACK_TYPE
 }
 
+function findField(fields: SchemaField[], id: string): SchemaField | undefined {
+  for (const f of fields) {
+    if (f.id === id) return f
+    if (f.children) {
+      const found = findField(f.children, id)
+      if (found) return found
+    }
+  }
+  return undefined
+}
+
 const rows = computed(() =>
   store.mappings.map((m) => ({
     id: m.id,
     sourceFieldId: m.sourceFieldId,
     targetFieldId: m.targetFieldId,
-    source: props.sourceFields.find((f) => f.id === m.sourceFieldId),
-    target: props.targetFields.find((f) => f.id === m.targetFieldId),
+    source: findField(props.sourceFields, m.sourceFieldId),
+    target: findField(props.targetFields, m.targetFieldId),
   })),
 )
 
