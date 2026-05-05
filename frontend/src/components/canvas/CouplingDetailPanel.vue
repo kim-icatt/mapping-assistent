@@ -108,7 +108,7 @@ watch(selectedMapping, () => {
       ? rule.truncationMaxLength
       : (targetField.value?.maxLength ?? 0)
   isEditing.value = false
-})
+}, { immediate: true })
 
 function saveTruncation() {
   if (truncationError.value || !selectedMapping.value) return

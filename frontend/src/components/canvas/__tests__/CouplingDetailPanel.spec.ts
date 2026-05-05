@@ -136,6 +136,25 @@ describe('CouplingDetailPanel — truncation form', () => {
     expect(Number(input.element.value)).toBe(50)
   })
 
+  it('pre-fills truncation input when mounted with mapping already selected (v-if scenario)', async () => {
+    // Mirrors the real app: panel mounts fresh because parent uses v-if="selectedMappingId !== null"
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+
+    // Mount AFTER selection is already set — watch must be immediate to catch this
+    const wrapper = mount(CouplingDetailPanel, {
+      global: { plugins: [pinia] },
+      props: { sourceFields, targetFields },
+    })
+    await wrapper.vm.$nextTick()
+
+    const input = wrapper.find<HTMLInputElement>('[data-testid="truncation-input"]')
+    expect(Number(input.element.value)).toBe(50)
+  })
+
   // Scenario: Administrator saves a valid truncation rule
   it('saves truncation rule and shows read-only summary after clicking Opslaan', async () => {
     const wrapper = mountPanel()
