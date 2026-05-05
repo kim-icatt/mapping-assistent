@@ -132,6 +132,17 @@ async function generate() {
 
   <!-- Suggestions list -->
   <div v-else-if="aiStore.suggestions.length > 0 || aiStore.lowConfidenceSuggestions.length > 0" class="flex-1 overflow-y-auto flex flex-col gap-2 p-3">
+    <!-- Generate again button when only low-confidence suggestions remain -->
+    <div v-if="aiStore.suggestions.length === 0 && zaakUnmappedTargetFields.length > 0" class="flex justify-center mb-1">
+      <button
+        class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg"
+        data-testid="generate-button"
+        @click="generate"
+      >
+        Genereer suggesties
+      </button>
+    </div>
+
     <AISuggestionCard
       v-for="s in resolvedSuggestions"
       :key="s.id"

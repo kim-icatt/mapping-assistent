@@ -45,9 +45,11 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       sourceCount: sourceFields.length,
       targetCount: unmappedTargetFields.length,
     })
+    suggestions.value = []
+    lowConfidenceSuggestions.value = []
+
     if (unmappedTargetFields.length === 0) {
       console.log('[AI] No unmapped target fields — skipping API call')
-      suggestions.value = []
       return []
     }
 
