@@ -97,4 +97,40 @@ describe('useMappings', () => {
     expect(store.mappings).toHaveLength(1)
     expect(store.mappings[0]!.sourceFieldId).toBe('src-1')
   })
+
+  // updateTransformation
+  it('updates the transformation on a mapping by id', () => {
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+
+    store.updateTransformation(mapping.id, { type: 'truncate', truncationMaxLength: 40 })
+
+    expect(store.mappings[0]!.transformation.type).toBe('truncate')
+    expect(store.mappings[0]!.transformation.truncationMaxLength).toBe(40)
+  })
+
+  it('is a no-op when mapping id does not exist', () => {
+    const store = useMappings()
+    store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
+
+    expect(() =>
+      store.updateTransformation('non-existent', { type: 'truncate', truncationMaxLength: 40 }),
+    ).not.toThrow()
+    expect(store.mappings[0]!.transformation.type).toBe('direct')
+  })
+
+  it('dispatches TransformationRuleAdded custom event on update', () => {
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    const events: CustomEvent[] = []
+    window.addEventListener('TransformationRuleAdded', (e) => events.push(e as CustomEvent))
+
+    store.updateTransformation(mapping.id, { type: 'truncate', truncationMaxLength: 40 })
+
+    expect(events).toHaveLength(1)
+    expect(events[0]!.detail).toMatchObject({
+      mappingId: mapping.id,
+      rule: { type: 'truncate', truncationMaxLength: 40 },
+    })
+  })
 })
