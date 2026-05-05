@@ -254,8 +254,7 @@ describe('useAISuggestions', () => {
       expect(aiStore.rejected).toBe(1)
     })
 
-    // Scenario: Rate resets on regeneration
-    it('resets counters and totalGenerated when generateSuggestions is called', async () => {
+    it('counters persist across multiple generateSuggestions calls', async () => {
       vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
       vi.stubGlobal(
         'fetch',
@@ -276,29 +275,29 @@ describe('useAISuggestions', () => {
 
       await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
 
-      expect(aiStore.accepted).toBe(0)
+      expect(aiStore.accepted).toBe(1)
       expect(aiStore.rejected).toBe(0)
     })
 
-    it('sets totalGenerated to the number of suggestions returned', async () => {
+    it('accumulates totalGenerated across multiple generateSuggestions calls', async () => {
       vi.stubEnv('VITE_OPENROUTER_API_KEY', 'test-key')
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-          ok: true,
-          json: () => Promise.resolve({
-            choices: [{ message: { content: JSON.stringify({ suggestions: [
-              { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
-              { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
-            ] }) } }],
-          }),
+      const mockResponse = {
+        ok: true,
+        json: () => Promise.resolve({
+          choices: [{ message: { content: JSON.stringify({ suggestions: [
+            { sourceField: 'firstName', targetField: 'first_name', confidenceScore: 0.95 },
+            { sourceField: 'lastName', targetField: 'last_name', confidenceScore: 0.92 },
+          ] }) } }],
         }),
-      )
+      }
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(mockResponse))
 
       const aiStore = useAISuggestions()
       await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
-
       expect(aiStore.totalGenerated).toBe(2)
+
+      await aiStore.generateSuggestions(sourceFields, unmappedTargetFields)
+      expect(aiStore.totalGenerated).toBe(4)
     })
   })
 })

@@ -42,10 +42,6 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       sourceCount: sourceFields.length,
       targetCount: unmappedTargetFields.length,
     })
-    accepted.value = 0
-    rejected.value = 0
-    totalGenerated.value = 0
-
     if (unmappedTargetFields.length === 0) {
       console.log('[AI] No unmapped target fields — skipping API call')
       suggestions.value = []
@@ -128,7 +124,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
 
       console.log('[AI] Suggestions', resolved.map((s) => ({ sourceFieldId: s.sourceFieldId, targetFieldId: s.targetFieldId, score: s.confidenceScore })))
       suggestions.value = resolved
-      totalGenerated.value = resolved.length
+      totalGenerated.value += resolved.length
 
       const event: AISuggestionsGenerated = {
         type: 'AISuggestionsGenerated',
