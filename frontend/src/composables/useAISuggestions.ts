@@ -30,6 +30,9 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   const suggestions = ref<AiSuggestion[]>([])
   const isLoading = ref(false)
   const error = ref<AIServiceError | null>(null)
+  const accepted = ref(0)
+  const rejected = ref(0)
+  const totalGenerated = ref(0)
 
   async function generateSuggestions(
     sourceFields: SchemaField[],
@@ -39,6 +42,10 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       sourceCount: sourceFields.length,
       targetCount: unmappedTargetFields.length,
     })
+    accepted.value = 0
+    rejected.value = 0
+    totalGenerated.value = 0
+
     if (unmappedTargetFields.length === 0) {
       console.log('[AI] No unmapped target fields — skipping API call')
       suggestions.value = []
@@ -121,6 +128,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
 
       console.log('[AI] Suggestions', resolved.map((s) => ({ sourceFieldId: s.sourceFieldId, targetFieldId: s.targetFieldId, score: s.confidenceScore })))
       suggestions.value = resolved
+      totalGenerated.value = resolved.length
 
       const event: AISuggestionsGenerated = {
         type: 'AISuggestionsGenerated',
@@ -147,6 +155,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId })
 
     suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    accepted.value++
 
     const event: AISuggestionAccepted = {
       type: 'AISuggestionAccepted',
@@ -163,6 +172,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     if (!suggestion) return
 
     suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    rejected.value++
 
     const event: AISuggestionRejected = {
       type: 'AISuggestionRejected',
@@ -173,5 +183,5 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     window.dispatchEvent(new CustomEvent('AISuggestionRejected', { detail: event }))
   }
 
-  return { suggestions, isLoading, error, generateSuggestions, acceptSuggestion, rejectSuggestion }
+  return { suggestions, isLoading, error, accepted, rejected, totalGenerated, generateSuggestions, acceptSuggestion, rejectSuggestion }
 })

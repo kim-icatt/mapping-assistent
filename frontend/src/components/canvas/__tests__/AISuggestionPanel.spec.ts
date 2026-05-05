@@ -107,4 +107,77 @@ describe('AISuggestionPanel', () => {
     expect(aiStore.suggestions).toHaveLength(0)
     expect(mappingsStore.mappings).toHaveLength(0)
   })
+
+  // Scenario: Rate is updated after acceptance
+  describe('acceptance rate display', () => {
+    it('shows acceptance rate bar when totalGenerated > 0', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.totalGenerated = 1
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="acceptance-rate"]').exists()).toBe(true)
+    })
+
+    it('shows "0 geaccepteerd" and "0 afgewezen" initially', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.totalGenerated = 1
+      await wrapper.vm.$nextTick()
+
+      const bar = wrapper.find('[data-testid="acceptance-rate"]')
+      expect(bar.text()).toContain('0 geaccepteerd')
+      expect(bar.text()).toContain('0 afgewezen')
+    })
+
+    it('updates rate display after accepting a suggestion', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.totalGenerated = 1
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="accept-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      const bar = wrapper.find('[data-testid="acceptance-rate"]')
+      expect(bar.text()).toContain('1 geaccepteerd')
+      expect(bar.text()).toContain('0 afgewezen')
+    })
+
+    // Scenario: Rate is updated after rejection
+    it('updates rate display after rejecting a suggestion', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        { id: 'sug-1', sourceFieldId: 'src-1', targetFieldId: 'tgt-1', confidenceScore: 0.97, status: 'pending' },
+        { id: 'sug-2', sourceFieldId: 'src-1', targetFieldId: 'tgt-2', confidenceScore: 0.80, status: 'pending' },
+      ] as AiSuggestion[]
+      aiStore.totalGenerated = 2
+      aiStore.accepted = 1
+      await wrapper.vm.$nextTick()
+
+      await wrapper.find('[data-testid="reject-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+
+      const bar = wrapper.find('[data-testid="acceptance-rate"]')
+      expect(bar.text()).toContain('1 geaccepteerd')
+      expect(bar.text()).toContain('1 afgewezen')
+    })
+
+    it('does not show acceptance rate bar before any suggestions are generated', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="acceptance-rate"]').exists()).toBe(false)
+    })
+  })
 })

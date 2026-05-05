@@ -51,6 +51,26 @@ async function generate() {
 </script>
 
 <template>
+  <!-- Acceptance rate bar -->
+  <div
+    v-if="aiStore.totalGenerated > 0"
+    class="flex items-center gap-3 px-3 py-2 text-xs border-b border-slate-100 text-slate-500"
+    data-testid="acceptance-rate"
+  >
+    <span class="flex items-center gap-1">
+      <span class="w-2 h-2 rounded-full bg-slate-300 inline-block" />
+      {{ aiStore.totalGenerated }} suggesties
+    </span>
+    <span class="flex items-center gap-1">
+      <span class="w-2 h-2 rounded-full bg-green-500 inline-block" />
+      {{ aiStore.accepted }} geaccepteerd
+    </span>
+    <span class="flex items-center gap-1">
+      <span class="w-2 h-2 rounded-full bg-red-500 inline-block" />
+      {{ aiStore.rejected }} afgewezen
+    </span>
+  </div>
+
   <!-- Loading -->
   <div
     v-if="aiStore.isLoading"
