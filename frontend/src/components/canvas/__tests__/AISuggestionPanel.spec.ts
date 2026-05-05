@@ -137,16 +137,6 @@ describe('AISuggestionPanel', () => {
     })
   })
 
-  // Scenario: All suggestions rejected — empty state with option to regenerate
-  it('shows "Opnieuw genereren" label on generate button after suggestions were generated', async () => {
-    const wrapper = mountPanel()
-    const aiStore = useAISuggestions()
-    aiStore.totalGenerated = 2
-    await wrapper.vm.$nextTick()
-    const btn = wrapper.find('[data-testid="generate-button"]')
-    expect(btn.exists()).toBe(true)
-    expect(btn.text()).toBe('Opnieuw genereren')
-  })
 
   // Scenario: Accepted suggestion appears on the canvas (mapping store updated)
   it('creates a field mapping when Accepteer is clicked on a suggestion card', async () => {

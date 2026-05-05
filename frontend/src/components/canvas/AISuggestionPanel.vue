@@ -204,7 +204,7 @@ async function generate() {
         data-testid="generate-button"
         @click="generate"
       >
-        {{ aiStore.totalGenerated > 0 ? 'Opnieuw genereren' : 'Genereer suggesties' }}
+        Genereer suggesties
       </button>
     </div>
   </template>
