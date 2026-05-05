@@ -10,8 +10,8 @@ export class AIServiceError extends Error {
   }
 }
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
-const CLAUDE_MODEL = 'claude-sonnet-4-6'
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
 
 interface ClaudeApiSuggestion {
   sourceField: string
@@ -45,8 +45,8 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     isLoading.value = true
     error.value = null
 
-    const apiKey = import.meta.env.VITE_CLAUDE_API_KEY as string | undefined
-    if (!apiKey) throw new AIServiceError('Claude API key not configured')
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined
+    if (!apiKey) throw new AIServiceError('OpenRouter API key not configured')
 
     const allSourceFields = flattenFields(sourceFields)
     // Capped to control prompt size and keep API costs low during PoC
@@ -63,24 +63,24 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
 
     let responseData: unknown
     try {
-      const response = await fetch(ANTHROPIC_API_URL, {
+      const response = await fetch(OPENROUTER_API_URL, {
         method: 'POST',
         headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
+          'Authorization': `Bearer ${apiKey}`,
           'content-type': 'application/json',
         },
         body: JSON.stringify({
           model: CLAUDE_MODEL,
           max_tokens: 1024,
-          system: [{ type: 'text', text: systemPrompt, cache_control: { type: 'ephemeral' } }],
-          messages: [{ role: 'user', content: userMessage }],
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
         }),
       })
 
       if (!response.ok) {
-        throw new AIServiceError(`Claude API returned ${response.status}`)
+        throw new AIServiceError(`OpenRouter API returned ${response.status}`)
       }
 
       responseData = await response.json()
@@ -94,7 +94,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
 
     try {
       const raw =
-        (responseData as { content: Array<{ type: string; text: string }> }).content[0]?.text ?? ''
+        (responseData as { choices: Array<{ message: { content: string } }> }).choices[0]?.message?.content ?? ''
       const start = raw.indexOf('{')
       const end = raw.lastIndexOf('}')
       const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
