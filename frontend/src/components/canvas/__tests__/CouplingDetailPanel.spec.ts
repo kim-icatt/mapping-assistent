@@ -58,7 +58,7 @@ describe('CouplingDetailPanel', () => {
   })
 
   // Scenario: Detail panel shows constraint reason for a constrained coupling
-  it('shows constraint reason and transformation placeholder for a constrained coupling', async () => {
+  it('shows constraint reason and truncation form for a constrained string coupling', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
     // src-2: string maxLength 100, tgt-2: string maxLength 50 → constrained
@@ -68,11 +68,11 @@ describe('CouplingDetailPanel', () => {
 
     const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
     expect(validationSection.text()).toMatch(/100|50|truncat/i)
-    expect(wrapper.find('[data-testid="transformation-placeholder"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(true)
   })
 
   // Scenario: Detail panel shows constraint reason for unbounded source → bounded target
-  it('shows constraint reason and transformation placeholder when source has no maxLength but target does', async () => {
+  it('shows truncation form when source has no maxLength but target does', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
     // src-1: string no maxLength, tgt-2: string maxLength 50 → constrained
@@ -82,7 +82,7 @@ describe('CouplingDetailPanel', () => {
 
     const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
     expect(validationSection.text()).toMatch(/50|afkapping/i)
-    expect(wrapper.find('[data-testid="transformation-placeholder"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(true)
   })
 
   // Scenario: Detail panel shows incompatibility reason for an incompatible coupling
@@ -120,5 +120,125 @@ describe('CouplingDetailPanel', () => {
     const wrapper = mountPanel()
     // selectedMappingId is null by default
     expect(wrapper.find('[data-testid="coupling-detail-panel"]').exists()).toBe(false)
+  })
+})
+
+describe('CouplingDetailPanel — truncation form', () => {
+  // Scenario: Truncation form is shown for a constrained string-to-string coupling
+  it('pre-fills truncation input with target maxLength', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    const input = wrapper.find<HTMLInputElement>('[data-testid="truncation-input"]')
+    expect(Number(input.element.value)).toBe(50)
+  })
+
+  it('pre-fills truncation input when mounted with mapping already selected (v-if scenario)', async () => {
+    // Mirrors the real app: panel mounts fresh because parent uses v-if="selectedMappingId !== null"
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+
+    // Mount AFTER selection is already set — watch must be immediate to catch this
+    const wrapper = mount(CouplingDetailPanel, {
+      global: { plugins: [pinia] },
+      props: { sourceFields, targetFields },
+    })
+    await wrapper.vm.$nextTick()
+
+    const input = wrapper.find<HTMLInputElement>('[data-testid="truncation-input"]')
+    expect(Number(input.element.value)).toBe(50)
+  })
+
+  // Scenario: Administrator saves a valid truncation rule
+  it('saves truncation rule and shows read-only summary after clicking Opslaan', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="truncation-input"]').setValue(40)
+    await wrapper.find('[data-testid="truncation-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(false)
+    const summary = wrapper.find('[data-testid="truncation-summary"]')
+    expect(summary.exists()).toBe(true)
+    expect(summary.text()).toContain('40')
+    expect(summary.text()).toContain('37')
+
+    const saved = store.mappings.find((m) => m.id === mapping.id)!
+    expect(saved.transformation.type).toBe('truncate')
+    expect(saved.transformation.truncationMaxLength).toBe(40)
+  })
+
+  // Scenario: Entering a truncation length exceeding the target maxLength shows an error
+  it('shows inline error and disables Opslaan when value exceeds target maxLength', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="truncation-input"]').setValue(80)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="truncation-error"]').exists()).toBe(true)
+    const saveBtn = wrapper.find<HTMLButtonElement>('[data-testid="truncation-save"]')
+    expect(saveBtn.element.disabled).toBe(true)
+  })
+
+  // Scenario: Administrator can edit an existing truncation rule
+  it('re-opens form pre-filled with saved value when Wijzigen is clicked', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="truncation-input"]').setValue(40)
+    await wrapper.find('[data-testid="truncation-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="truncation-edit"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(true)
+    const input = wrapper.find<HTMLInputElement>('[data-testid="truncation-input"]')
+    expect(Number(input.element.value)).toBe(40)
+  })
+
+  // Scenario: Truncation form is not shown for incompatible or compatible couplings
+  it('does not show truncation form for an incompatible coupling', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    // src-3: object, tgt-3: string → incompatible
+    const mapping = store.createMapping({ sourceFieldId: 'src-3', targetFieldId: 'tgt-3' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="truncation-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="truncation-summary"]').exists()).toBe(false)
+  })
+
+  // Edge case: value below minimum
+  it('shows error for input below 4', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="truncation-input"]').setValue(2)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="truncation-error"]').exists()).toBe(true)
+    expect(wrapper.find<HTMLButtonElement>('[data-testid="truncation-save"]').element.disabled).toBe(true)
   })
 })

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { FieldMapping } from '@/types'
+import type { FieldMapping, TransformationRule } from '@/types'
 
 export const useMappings = defineStore('mappings', () => {
   const mappings = ref<FieldMapping[]>([])
@@ -44,5 +44,17 @@ export const useMappings = defineStore('mappings', () => {
     if (selectedMappingId.value === id) selectedMappingId.value = null
   }
 
-  return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping }
+  function updateTransformation(id: string, rule: TransformationRule): void {
+    const mapping = mappings.value.find((m) => m.id === id)
+    if (!mapping) {
+      console.warn(`updateTransformation: mapping ${id} not found`)
+      return
+    }
+    mapping.transformation = rule
+    window.dispatchEvent(
+      new CustomEvent('TransformationRuleAdded', { detail: { mappingId: id, rule } }),
+    )
+  }
+
+  return { mappings, selectedMappingId, hasMapping, createMapping, removeMapping, selectMapping, updateTransformation }
 })
