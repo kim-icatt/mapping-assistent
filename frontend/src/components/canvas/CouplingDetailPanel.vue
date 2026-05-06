@@ -4,7 +4,7 @@ import type { SchemaField } from '@/types'
 import { useMappings } from '@/composables/useMappings'
 import {
   getValidationStatus,
-  getConstraintReason,
+  getConstraintReasons,
   getIncompatibilityReason,
 } from '@/utils/validationStatus'
 
@@ -65,10 +65,10 @@ const validationStatus = computed(() =>
     : null,
 )
 
-const constraintReason = computed(() =>
+const constraintReasons = computed(() =>
   sourceField.value && targetField.value && validationStatus.value === 'constrained'
-    ? getConstraintReason(sourceField.value, targetField.value)
-    : null,
+    ? getConstraintReasons(sourceField.value, targetField.value)
+    : [],
 )
 
 const incompatibilityReason = computed(() =>
@@ -251,7 +251,7 @@ function editDefaultValue() {
 
       <!-- Constrained -->
       <template v-else-if="validationStatus === 'constrained'">
-        <span class="font-medium">⚠ {{ constraintReason }}</span>
+        <span v-for="(reason, i) in constraintReasons" :key="i" class="block font-medium">⚠ {{ reason }}</span>
 
         <!-- Truncation form (string→string with target maxLength) -->
         <template v-if="showTruncationForm">
