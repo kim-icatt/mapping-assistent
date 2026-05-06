@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { SchemaField } from '@/types'
 import { useMappings } from '@/composables/useMappings'
 import {
@@ -76,6 +76,57 @@ const incompatibilityReason = computed(() =>
     ? getIncompatibilityReason(sourceField.value, targetField.value)
     : null,
 )
+
+// Truncation form state
+const truncationInput = ref(0)
+const isEditing = ref(false)
+
+const showTruncationForm = computed(() =>
+  validationStatus.value === 'constrained' &&
+  sourceField.value?.dataType === 'string' &&
+  targetField.value?.dataType === 'string' &&
+  targetField.value?.maxLength !== undefined,
+)
+
+const hasTruncationRule = computed(
+  () => selectedMapping.value?.transformation.type === 'truncate',
+)
+
+const truncationError = computed(() => {
+  const val = truncationInput.value
+  const max = targetField.value?.maxLength
+  if (!Number.isInteger(val) || val < 4) return 'Waarde moet minimaal 4 zijn'
+  if (max !== undefined && val > max) return `Waarde moet tussen 4 en ${max} liggen`
+  return null
+})
+
+watch(selectedMapping, () => {
+  if (!showTruncationForm.value) return
+  const rule = selectedMapping.value?.transformation
+  truncationInput.value =
+    rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
+      ? rule.truncationMaxLength
+      : (targetField.value?.maxLength ?? 0)
+  isEditing.value = false
+}, { immediate: true })
+
+function saveTruncation() {
+  if (truncationError.value || !selectedMapping.value) return
+  store.updateTransformation(selectedMapping.value.id, {
+    type: 'truncate',
+    truncationMaxLength: truncationInput.value,
+  })
+  isEditing.value = false
+}
+
+function editTruncation() {
+  const rule = selectedMapping.value?.transformation
+  truncationInput.value =
+    rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
+      ? rule.truncationMaxLength
+      : (targetField.value?.maxLength ?? 0)
+  isEditing.value = true
+}
 </script>
 
 <template>
@@ -151,12 +202,67 @@ const incompatibilityReason = computed(() =>
       <!-- Constrained -->
       <template v-else-if="validationStatus === 'constrained'">
         <span class="font-medium">⚠ {{ constraintReason }}</span>
-        <div
-          class="mt-2 border border-dashed border-amber-200 rounded p-2 text-[11px] italic text-slate-300"
-          data-testid="transformation-placeholder"
-        >
-          — Transformatieregel —
-        </div>
+
+        <!-- Truncation form (string→string with target maxLength) -->
+        <template v-if="showTruncationForm">
+          <!-- Read-only summary -->
+          <div
+            v-if="hasTruncationRule && !isEditing"
+            class="mt-2 flex items-center justify-between gap-2"
+            data-testid="truncation-summary"
+          >
+            <span class="text-sm text-amber-700">
+              ✂ Afkappen op {{ selectedMapping.transformation.truncationMaxLength }} tekens
+              ({{ selectedMapping.transformation.truncationMaxLength! - 3 }} + "...")
+            </span>
+            <button
+              class="text-xs text-amber-700 underline shrink-0"
+              data-testid="truncation-edit"
+              @click="editTruncation"
+            >Wijzigen</button>
+          </div>
+
+          <!-- Form (fresh or edit) -->
+          <form
+            v-else
+            role="form"
+            aria-label="Truncatieregel instellen"
+            class="mt-2"
+            data-testid="truncation-form"
+            @submit.prevent="saveTruncation"
+          >
+            <label class="block text-[11px] text-amber-700 mb-1">Maximale uitvoerlengte</label>
+            <div class="flex items-center gap-2">
+              <input
+                v-model.number="truncationInput"
+                type="number"
+                :min="4"
+                :max="targetField.maxLength"
+                class="w-24 border border-amber-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                aria-label="Maximale uitvoerlengte"
+                :aria-describedby="truncationError ? 'truncation-error-msg' : undefined"
+                data-testid="truncation-input"
+              />
+              <button
+                type="button"
+                :disabled="!!truncationError"
+                class="bg-amber-600 text-white rounded px-3 py-1 text-xs hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                :aria-disabled="!!truncationError"
+                data-testid="truncation-save"
+                @click="saveTruncation"
+              >Opslaan</button>
+            </div>
+            <p
+              v-if="truncationError"
+              id="truncation-error-msg"
+              class="mt-1 text-[11px] text-red-600"
+              data-testid="truncation-error"
+            >{{ truncationError }}</p>
+            <p v-else class="mt-1 text-[11px] text-slate-400">
+              Uitvoer: {{ truncationInput - 3 }} tekens + "..."
+            </p>
+          </form>
+        </template>
       </template>
 
       <!-- Incompatible -->

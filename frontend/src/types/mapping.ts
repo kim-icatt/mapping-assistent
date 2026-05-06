@@ -1,4 +1,4 @@
-export type TransformationType = 'direct' | 'static' | 'expression'
+export type TransformationType = 'direct' | 'static' | 'expression' | 'truncate'
 
 export type MappingStatus = 'confirmed' | 'rejected'
 
@@ -6,6 +6,7 @@ export interface TransformationRule {
   type: TransformationType
   staticValue?: string // used when type === 'static'
   expression?: string  // used when type === 'expression' (e.g. JSONata)
+  truncationMaxLength?: number // used when type === 'truncate'
 }
 
 export interface FieldMapping {
