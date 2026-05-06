@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
+import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
+import { useMappings } from '@/composables/useMappings'
 
 const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
 const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
+const mappingsStore = useMappings()
 
 async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
@@ -35,7 +38,13 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
       />
     </div>
     <div class="w-80 shrink-0">
+      <CouplingDetailPanel
+        v-if="mappingsStore.selectedMappingId !== null"
+        :source-fields="sourceFields"
+        :target-fields="targetFields"
+      />
       <MappingOverview
+        v-else
         :source-fields="sourceFields"
         :target-fields="targetFields"
       />

@@ -30,13 +30,24 @@ function typeOf(dataType: string) {
   return typeConfig[dataType] ?? FALLBACK_TYPE
 }
 
+function findField(fields: SchemaField[], id: string): SchemaField | undefined {
+  for (const f of fields) {
+    if (f.id === id) return f
+    if (f.children) {
+      const found = findField(f.children, id)
+      if (found) return found
+    }
+  }
+  return undefined
+}
+
 const rows = computed(() =>
   store.mappings.map((m) => ({
     id: m.id,
     sourceFieldId: m.sourceFieldId,
     targetFieldId: m.targetFieldId,
-    source: props.sourceFields.find((f) => f.id === m.sourceFieldId),
-    target: props.targetFields.find((f) => f.id === m.targetFieldId),
+    source: findField(props.sourceFields, m.sourceFieldId),
+    target: findField(props.targetFields, m.targetFieldId),
   })),
 )
 
@@ -83,11 +94,13 @@ function cancelDelete() {
 
     <!-- Mapping rows -->
     <div v-else class="flex-1 overflow-y-auto divide-y divide-slate-100">
+      <!-- TODO task #44: replace this click handler with bidirectional canvas/row selection -->
       <div
         v-for="row in rows"
         :key="row.id"
-        class="flex items-center gap-2 px-3 py-2 text-sm"
+        class="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-slate-50"
         data-testid="mapping-row"
+        @click.stop="store.selectMapping(row.id)"
       >
         <!-- Source field -->
         <div class="flex-1 min-w-0 flex items-center gap-1.5">
@@ -119,7 +132,7 @@ function cancelDelete() {
           class="shrink-0 text-slate-300 hover:text-red-500 transition-colors font-bold px-1 leading-none"
           data-testid="remove-mapping"
           aria-label="Verwijder koppeling"
-          @click="requestDelete(row.id)"
+          @click.stop="requestDelete(row.id)"
         >×</button>
       </div>
     </div>
