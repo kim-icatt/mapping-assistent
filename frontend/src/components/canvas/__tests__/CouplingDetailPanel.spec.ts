@@ -179,8 +179,9 @@ describe('CouplingDetailPanel — truncation form', () => {
     expect(summary.text()).toContain('37')
 
     const saved = store.mappings.find((m) => m.id === mapping.id)!
-    expect(saved.transformation.type).toBe('truncate')
-    expect(saved.transformation.truncationMaxLength).toBe(40)
+    const rule = saved.transformations.find((r) => r.type === 'truncate')
+    expect(rule?.type).toBe('truncate')
+    expect(rule?.truncationMaxLength).toBe(40)
   })
 
   // Scenario: Entering a truncation length exceeding the target maxLength shows an error
@@ -281,8 +282,9 @@ describe('CouplingDetailPanel — default value form', () => {
     expect(summary.text()).toContain('onbekend')
 
     const saved = store.mappings.find((m) => m.id === mapping.id)!
-    expect(saved.transformation.type).toBe('default')
-    expect(saved.transformation.defaultValue).toBe('onbekend')
+    const rule = saved.transformations.find((r) => r.type === 'default')
+    expect(rule?.type).toBe('default')
+    expect(rule?.defaultValue).toBe('onbekend')
   })
 
   // Scenario: Saving without entering a value is blocked
@@ -300,7 +302,7 @@ describe('CouplingDetailPanel — default value form', () => {
     expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="default-value-summary"]').exists()).toBe(false)
     const saved = store.mappings.find((m) => m.id === mapping.id)!
-    expect(saved.transformation.type).not.toBe('default')
+    expect(saved.transformations.find((r) => r.type === 'default')).toBeUndefined()
   })
 
   // Scenario: Non-numeric value for a number target field shows an error

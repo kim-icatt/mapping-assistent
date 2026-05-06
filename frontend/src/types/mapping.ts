@@ -14,7 +14,7 @@ export interface FieldMapping {
   id: string
   sourceFieldId: string
   targetFieldId: string
-  transformation: TransformationRule
+  transformations: TransformationRule[]
   status: MappingStatus
   notes?: string
 }

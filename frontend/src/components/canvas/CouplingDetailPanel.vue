@@ -88,9 +88,11 @@ const showTruncationForm = computed(() =>
   targetField.value?.maxLength !== undefined,
 )
 
-const hasTruncationRule = computed(
-  () => selectedMapping.value?.transformation.type === 'truncate',
+const truncationRule = computed(
+  () => selectedMapping.value?.transformations.find((r) => r.type === 'truncate') ?? null,
 )
+
+const hasTruncationRule = computed(() => truncationRule.value !== null)
 
 const truncationError = computed(() => {
   const val = truncationInput.value
@@ -110,9 +112,11 @@ const showDefaultValueForm = computed(() =>
   targetField.value?.required === true,
 )
 
-const hasDefaultValueRule = computed(
-  () => selectedMapping.value?.transformation.type === 'default',
+const defaultRule = computed(
+  () => selectedMapping.value?.transformations.find((r) => r.type === 'default') ?? null,
 )
+
+const hasDefaultValueRule = computed(() => defaultRule.value !== null)
 
 const defaultValueInputType = computed(() =>
   targetField.value?.dataType === 'number' ? 'number' : 'text',
@@ -129,17 +133,11 @@ const defaultValueError = computed(() => {
 
 watch(selectedMapping, () => {
   if (showTruncationForm.value) {
-    const rule = selectedMapping.value?.transformation
-    truncationInput.value =
-      rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
-        ? rule.truncationMaxLength
-        : (targetField.value?.maxLength ?? 0)
+    truncationInput.value = truncationRule.value?.truncationMaxLength ?? (targetField.value?.maxLength ?? 0)
     isEditing.value = false
   }
   if (showDefaultValueForm.value) {
-    const rule = selectedMapping.value?.transformation
-    defaultValueInput.value =
-      rule?.type === 'default' && rule.defaultValue !== undefined ? rule.defaultValue : ''
+    defaultValueInput.value = defaultRule.value?.defaultValue ?? ''
     isEditingDefaultValue.value = false
   }
 }, { immediate: true })
@@ -154,11 +152,7 @@ function saveTruncation() {
 }
 
 function editTruncation() {
-  const rule = selectedMapping.value?.transformation
-  truncationInput.value =
-    rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
-      ? rule.truncationMaxLength
-      : (targetField.value?.maxLength ?? 0)
+  truncationInput.value = truncationRule.value?.truncationMaxLength ?? (targetField.value?.maxLength ?? 0)
   isEditing.value = true
 }
 
@@ -172,9 +166,7 @@ function saveDefaultValue() {
 }
 
 function editDefaultValue() {
-  const rule = selectedMapping.value?.transformation
-  defaultValueInput.value =
-    rule?.type === 'default' && rule.defaultValue !== undefined ? rule.defaultValue : ''
+  defaultValueInput.value = defaultRule.value?.defaultValue ?? ''
   isEditingDefaultValue.value = true
 }
 </script>
@@ -262,8 +254,8 @@ function editDefaultValue() {
             data-testid="truncation-summary"
           >
             <span class="text-sm text-amber-700">
-              ✂ Afkappen op {{ selectedMapping.transformation.truncationMaxLength }} tekens
-              ({{ selectedMapping.transformation.truncationMaxLength! - 3 }} + "...")
+              ✂ Afkappen op {{ truncationRule?.truncationMaxLength }} tekens
+              ({{ (truncationRule?.truncationMaxLength ?? 3) - 3 }} + "...")
             </span>
             <button
               class="text-xs text-amber-700 underline shrink-0"
@@ -322,7 +314,7 @@ function editDefaultValue() {
             class="mt-2 flex items-center justify-between gap-2"
             data-testid="default-value-summary"
           >
-            <span class="text-sm text-amber-700">↩ Standaardwaarde: {{ selectedMapping.transformation.defaultValue }}</span>
+            <span class="text-sm text-amber-700">↩ Standaardwaarde: {{ defaultRule?.defaultValue }}</span>
             <button
               class="text-xs text-amber-700 underline shrink-0"
               data-testid="default-value-edit"
