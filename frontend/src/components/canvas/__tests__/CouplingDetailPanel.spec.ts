@@ -340,6 +340,30 @@ describe('CouplingDetailPanel — default value form', () => {
     expect(input.element.value).toBe('onbekend')
   })
 
+  // Regression: Vue auto-converts type="number" input value to a number — String() must be used
+  it('saves a valid number value when Vue provides the value as a number type', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-req-num' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    // Simulate Vue passing a number (as it does internally for type="number" inputs)
+    await wrapper.find('[data-testid="default-value-input"]').setValue(42)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(false)
+    const saveBtn = wrapper.find<HTMLButtonElement>('[data-testid="default-value-save"]')
+    expect(saveBtn.element.disabled).toBe(false)
+
+    await saveBtn.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const saved = store.mappings.find((m) => m.id === mapping.id)!
+    const rule = saved.transformations.find((r) => r.type === 'default')
+    expect(rule?.defaultValue).toBe('42')
+  })
+
   // Scenario: Form not shown when source is required
   it('does not show default value form when source field is required', async () => {
     const wrapper = mountPanel()

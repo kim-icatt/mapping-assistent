@@ -123,7 +123,8 @@ const defaultValueInputType = computed(() =>
 )
 
 const defaultValueError = computed(() => {
-  const val = defaultValueInput.value.trim()
+  // String() guards against Vue auto-converting type="number" input values to numbers
+  const val = String(defaultValueInput.value ?? '').trim()
   if (!val) return 'Voer een standaardwaarde in'
   if (targetField.value?.dataType === 'number' && !isFinite(Number(val))) {
     return 'Voer een geldig getal in'
@@ -160,7 +161,7 @@ function saveDefaultValue() {
   if (defaultValueError.value || !selectedMapping.value) return
   store.updateTransformation(selectedMapping.value.id, {
     type: 'default',
-    defaultValue: defaultValueInput.value.trim(),
+    defaultValue: String(defaultValueInput.value ?? '').trim(),
   })
   isEditingDefaultValue.value = false
 }
