@@ -2,11 +2,14 @@
 import { ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
+import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
 import { useSourceSchema } from '@/composables/useSourceSchema'
 import { useTargetSchema } from '@/composables/useTargetSchema'
+import { useMappings } from '@/composables/useMappings'
 
 const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
 const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
+const mappingsStore = useMappings()
 
 const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 
@@ -40,7 +43,13 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
       </div>
     </div>
     <div class="w-80 shrink-0">
+      <CouplingDetailPanel
+        v-if="mappingsStore.selectedMappingId !== null"
+        :source-fields="sourceFields"
+        :target-fields="targetFields"
+      />
       <MappingOverview
+        v-else
         v-model:active-tab="activeTab"
         :source-fields="sourceFields"
         :target-fields="targetFields"
