@@ -45,8 +45,6 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       sourceCount: sourceFields.length,
       targetCount: unmappedTargetFields.length,
     })
-    suggestions.value = []
-    lowConfidenceSuggestions.value = []
 
     if (unmappedTargetFields.length === 0) {
       console.log('[AI] No unmapped target fields — skipping API call')
@@ -97,7 +95,10 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       responseData = await response.json()
     } catch (e) {
       isLoading.value = false
-      if (e instanceof AIServiceError) throw e
+      if (e instanceof AIServiceError) {
+        error.value = e
+        throw e
+      }
       const err = new AIServiceError('AI service unreachable', e)
       error.value = err
       throw err
