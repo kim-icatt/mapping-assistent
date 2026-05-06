@@ -25,6 +25,8 @@ export function getValidationStatus(source: SchemaField, target: SchemaField): V
 
   if (source.dataType !== target.dataType) return 'constrained'
 
+  if (!source.required && target.required) return 'constrained'
+
   return 'compatible'
 }
 
@@ -34,6 +36,9 @@ export function getConstraintReason(source: SchemaField, target: SchemaField): s
       return `Bronveld heeft geen maximale lengte, doelveld is beperkt tot ${target.maxLength} — mogelijke afkapping`
     }
     return `Bronveld is langer dan doelveld (max. ${source.maxLength} vs ${target.maxLength}) — afkapping vereist`
+  }
+  if (!source.required && target.required) {
+    return 'Bronveld is niet verplicht, doelveld is verplicht — standaardwaarde vereist'
   }
   return `${source.dataType} naar ${target.dataType} vereist transformatie`
 }

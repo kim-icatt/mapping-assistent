@@ -100,14 +100,48 @@ const truncationError = computed(() => {
   return null
 })
 
+// Default value form state
+const defaultValueInput = ref('')
+const isEditingDefaultValue = ref(false)
+
+const showDefaultValueForm = computed(() =>
+  validationStatus.value === 'constrained' &&
+  !sourceField.value?.required &&
+  targetField.value?.required === true,
+)
+
+const hasDefaultValueRule = computed(
+  () => selectedMapping.value?.transformation.type === 'default',
+)
+
+const defaultValueInputType = computed(() =>
+  targetField.value?.dataType === 'number' ? 'number' : 'text',
+)
+
+const defaultValueError = computed(() => {
+  const val = defaultValueInput.value.trim()
+  if (!val) return 'Voer een standaardwaarde in'
+  if (targetField.value?.dataType === 'number' && !isFinite(Number(val))) {
+    return 'Voer een geldig getal in'
+  }
+  return null
+})
+
 watch(selectedMapping, () => {
-  if (!showTruncationForm.value) return
-  const rule = selectedMapping.value?.transformation
-  truncationInput.value =
-    rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
-      ? rule.truncationMaxLength
-      : (targetField.value?.maxLength ?? 0)
-  isEditing.value = false
+  if (showTruncationForm.value) {
+    const rule = selectedMapping.value?.transformation
+    truncationInput.value =
+      rule?.type === 'truncate' && rule.truncationMaxLength !== undefined
+        ? rule.truncationMaxLength
+        : (targetField.value?.maxLength ?? 0)
+    isEditing.value = false
+  }
+  if (showDefaultValueForm.value) {
+    const rule = selectedMapping.value?.transformation
+    defaultValueInput.value =
+      rule?.type === 'default' && rule.defaultValue !== undefined ? rule.defaultValue : ''
+    isEditingDefaultValue.value = false
+  }
 }, { immediate: true })
 
 function saveTruncation() {
@@ -126,6 +160,22 @@ function editTruncation() {
       ? rule.truncationMaxLength
       : (targetField.value?.maxLength ?? 0)
   isEditing.value = true
+}
+
+function saveDefaultValue() {
+  if (defaultValueError.value || !selectedMapping.value) return
+  store.updateTransformation(selectedMapping.value.id, {
+    type: 'default',
+    defaultValue: defaultValueInput.value.trim(),
+  })
+  isEditingDefaultValue.value = false
+}
+
+function editDefaultValue() {
+  const rule = selectedMapping.value?.transformation
+  defaultValueInput.value =
+    rule?.type === 'default' && rule.defaultValue !== undefined ? rule.defaultValue : ''
+  isEditingDefaultValue.value = true
 }
 </script>
 
@@ -261,6 +311,60 @@ function editTruncation() {
             <p v-else class="mt-1 text-[11px] text-slate-400">
               Uitvoer: {{ truncationInput - 3 }} tekens + "..."
             </p>
+          </form>
+        </template>
+
+        <!-- Default value form (non-required source → required target) -->
+        <template v-if="showDefaultValueForm">
+          <!-- Read-only summary -->
+          <div
+            v-if="hasDefaultValueRule && !isEditingDefaultValue"
+            class="mt-2 flex items-center justify-between gap-2"
+            data-testid="default-value-summary"
+          >
+            <span class="text-sm text-amber-700">↩ Standaardwaarde: {{ selectedMapping.transformation.defaultValue }}</span>
+            <button
+              class="text-xs text-amber-700 underline shrink-0"
+              data-testid="default-value-edit"
+              @click="editDefaultValue"
+            >Wijzigen</button>
+          </div>
+
+          <!-- Form (fresh or edit) -->
+          <form
+            v-else
+            role="form"
+            aria-label="Standaardwaarde instellen"
+            class="mt-2"
+            data-testid="default-value-form"
+            @submit.prevent="saveDefaultValue"
+          >
+            <label class="block text-[11px] text-amber-700 mb-1">Standaardwaarde <span aria-hidden="true">*</span></label>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="defaultValueInput"
+                :type="defaultValueInputType"
+                required
+                class="flex-1 border border-amber-200 rounded px-2 py-1 text-sm text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                aria-label="Standaardwaarde"
+                :aria-describedby="defaultValueError ? 'default-value-error-msg' : undefined"
+                data-testid="default-value-input"
+              />
+              <button
+                type="button"
+                :disabled="!!defaultValueError"
+                class="bg-amber-600 text-white rounded px-3 py-1 text-xs hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                :aria-disabled="!!defaultValueError"
+                data-testid="default-value-save"
+                @click="saveDefaultValue"
+              >Opslaan</button>
+            </div>
+            <p
+              v-if="defaultValueError"
+              id="default-value-error-msg"
+              class="mt-1 text-[11px] text-red-600"
+              data-testid="default-value-error"
+            >{{ defaultValueError }}</p>
           </form>
         </template>
       </template>

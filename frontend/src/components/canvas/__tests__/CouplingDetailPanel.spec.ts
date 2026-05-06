@@ -9,12 +9,17 @@ const sourceFields: SchemaField[] = [
   { id: 'src-1', name: 'naam', path: 'naam', dataType: 'string', required: false },
   { id: 'src-2', name: 'beschrijving', path: 'beschrijving', dataType: 'string', required: false, maxLength: 100 },
   { id: 'src-3', name: 'adres', path: 'adres', dataType: 'object', required: false },
+  { id: 'src-opt', name: 'opmerking', path: 'opmerking', dataType: 'string', required: false },
+  { id: 'src-req', name: 'verplicht_bron', path: 'verplicht_bron', dataType: 'string', required: true },
+  { id: 'src-opt-num', name: 'aantal', path: 'aantal', dataType: 'number', required: false },
 ]
 
 const targetFields: SchemaField[] = [
   { id: 'tgt-1', name: 'volledige_naam', path: 'volledige_naam', dataType: 'string', required: false },
   { id: 'tgt-2', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false, maxLength: 50 },
   { id: 'tgt-3', name: 'adresString', path: 'adresString', dataType: 'string', required: false },
+  { id: 'tgt-req', name: 'toelichting', path: 'toelichting', dataType: 'string', required: true },
+  { id: 'tgt-req-num', name: 'nummer', path: 'nummer', dataType: 'number', required: true },
 ]
 
 function mountPanel() {
@@ -227,7 +232,7 @@ describe('CouplingDetailPanel — truncation form', () => {
     expect(wrapper.find('[data-testid="truncation-summary"]').exists()).toBe(false)
   })
 
-  // Edge case: value below minimum
+  // Edge case: value below minimum (4)
   it('shows error for input below 4', async () => {
     const wrapper = mountPanel()
     const store = useMappings()
@@ -240,5 +245,108 @@ describe('CouplingDetailPanel — truncation form', () => {
 
     expect(wrapper.find('[data-testid="truncation-error"]').exists()).toBe(true)
     expect(wrapper.find<HTMLButtonElement>('[data-testid="truncation-save"]').element.disabled).toBe(true)
+  })
+})
+
+describe('CouplingDetailPanel — default value form', () => {
+  // Scenario: Default value form shown for non-required source mapped to required target
+  it('shows default value form when source is not required and target is required', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-form"]').exists()).toBe(true)
+    const input = wrapper.find<HTMLInputElement>('[data-testid="default-value-input"]')
+    expect(input.exists()).toBe(true)
+    expect(input.element.required).toBe(true)
+  })
+
+  // Scenario: Administrator saves a valid default value
+  it('saves default value rule and shows read-only summary after clicking Opslaan', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="default-value-input"]').setValue('onbekend')
+    await wrapper.find('[data-testid="default-value-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-form"]').exists()).toBe(false)
+    const summary = wrapper.find('[data-testid="default-value-summary"]')
+    expect(summary.exists()).toBe(true)
+    expect(summary.text()).toContain('onbekend')
+
+    const saved = store.mappings.find((m) => m.id === mapping.id)!
+    expect(saved.transformation.type).toBe('default')
+    expect(saved.transformation.defaultValue).toBe('onbekend')
+  })
+
+  // Scenario: Saving without entering a value is blocked
+  it('shows inline error and does not save when value is empty', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="default-value-input"]').setValue('')
+    await wrapper.find('[data-testid="default-value-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="default-value-summary"]').exists()).toBe(false)
+    const saved = store.mappings.find((m) => m.id === mapping.id)!
+    expect(saved.transformation.type).not.toBe('default')
+  })
+
+  // Scenario: Non-numeric value for a number target field shows an error
+  it('shows error and disables Opslaan when non-numeric value entered for number target', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-req-num' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="default-value-input"]').setValue('abc')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-error"]').exists()).toBe(true)
+    expect(wrapper.find<HTMLButtonElement>('[data-testid="default-value-save"]').element.disabled).toBe(true)
+  })
+
+  // Scenario: Administrator can edit a saved default value
+  it('re-opens form pre-filled with saved value when Wijzigen is clicked', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="default-value-input"]').setValue('onbekend')
+    await wrapper.find('[data-testid="default-value-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="default-value-edit"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-form"]').exists()).toBe(true)
+    const input = wrapper.find<HTMLInputElement>('[data-testid="default-value-input"]')
+    expect(input.element.value).toBe('onbekend')
+  })
+
+  // Scenario: Form not shown when source is required
+  it('does not show default value form when source field is required', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-req', targetFieldId: 'tgt-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="default-value-form"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="default-value-summary"]').exists()).toBe(false)
   })
 })
