@@ -458,4 +458,67 @@ describe('useAISuggestions', () => {
       expect(aiStore.totalGenerated).toBe(4)
     })
   })
+
+  describe('rejected pairs filtering', () => {
+    const zaaktypeField: SchemaField = { id: 'src-zaaktype', name: 'zaaktype', path: 'zaaktype', dataType: 'string', required: false }
+    const caseTypeField: SchemaField = { id: 'tgt-caseType', name: 'caseType', path: 'caseType', dataType: 'string', required: false }
+    const statusField: SchemaField = { id: 'src-status', name: 'status', path: 'status', dataType: 'string', required: false }
+    const statusCodeField: SchemaField = { id: 'tgt-statusCode', name: 'statusCode', path: 'statusCode', dataType: 'string', required: false }
+    const omschrijvingField: SchemaField = { id: 'src-omschrijving', name: 'omschrijving', path: 'omschrijving', dataType: 'string', required: false }
+    const descriptionField: SchemaField = { id: 'tgt-description', name: 'description', path: 'description', dataType: 'string', required: false }
+
+    // Scenario: Rejected pair does not reappear after re-generation
+    it('rejected pair does not reappear after re-generation', async () => {
+      const mockResponse = (pairs: Array<{ s: string; t: string; score: number }>) => ({
+        choices: [{ message: { content: JSON.stringify({ suggestions: pairs.map(p => ({ sourceField: p.s, targetField: p.t, confidenceScore: p.score })) }) } }],
+      })
+
+      const store = useAISuggestions()
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockResponse([{ s: 'zaaktype', t: 'caseType', score: 0.95 }, { s: 'status', t: 'statusCode', score: 0.90 }])) }))
+      await store.generateSuggestions([zaaktypeField, statusField], [caseTypeField, statusCodeField])
+
+      const toReject = store.suggestions.find(s => s.sourceFieldId === 'src-zaaktype' && s.targetFieldId === 'tgt-caseType')
+      expect(toReject).toBeDefined()
+      store.rejectSuggestion(toReject!.id)
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(mockResponse([{ s: 'zaaktype', t: 'caseType', score: 0.95 }, { s: 'status', t: 'statusCode', score: 0.90 }])) }))
+      await store.generateSuggestions([zaaktypeField, statusField], [caseTypeField, statusCodeField])
+
+      const all = [...store.suggestions, ...store.lowConfidenceSuggestions]
+      expect(all.some(s => s.sourceFieldId === 'src-zaaktype' && s.targetFieldId === 'tgt-caseType')).toBe(false)
+      expect(all.some(s => s.sourceFieldId === 'src-status' && s.targetFieldId === 'tgt-statusCode')).toBe(true)
+    })
+
+    // Scenario: All previously rejected pairs filtered — empty state shown
+    it('all previously rejected pairs filtered — empty state shown when AI returns only rejected pairs', async () => {
+      const response = { choices: [{ message: { content: JSON.stringify({ suggestions: [{ sourceField: 'zaaktype', targetField: 'caseType', confidenceScore: 0.95 }] }) } }] }
+
+      const store = useAISuggestions()
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(response) }))
+      await store.generateSuggestions([zaaktypeField], [caseTypeField])
+
+      ;[...store.suggestions, ...store.lowConfidenceSuggestions].forEach(s => store.rejectSuggestion(s.id))
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(response) }))
+      await store.generateSuggestions([zaaktypeField], [caseTypeField])
+
+      expect(store.suggestions).toHaveLength(0)
+      expect(store.lowConfidenceSuggestions).toHaveLength(0)
+    })
+
+    // Scenario: AI returns a rejected pair — it is filtered before display
+    it('AI returns a rejected pair — it is filtered before display', async () => {
+      const store = useAISuggestions()
+      store.suggestions = [{ id: 'sug-omschrijving', sourceFieldId: 'src-omschrijving', targetFieldId: 'tgt-description', confidenceScore: 0.90, status: 'pending' }]
+      store.rejectSuggestion('sug-omschrijving')
+
+      const response = { choices: [{ message: { content: JSON.stringify({ suggestions: [{ sourceField: 'omschrijving', targetField: 'description', confidenceScore: 0.90 }] }) } }] }
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(response) }))
+      await store.generateSuggestions([omschrijvingField], [descriptionField])
+
+      const all = [...store.suggestions, ...store.lowConfidenceSuggestions]
+      expect(all.some(s => s.sourceFieldId === 'src-omschrijving' && s.targetFieldId === 'tgt-description')).toBe(false)
+    })
+
+  })
 })
