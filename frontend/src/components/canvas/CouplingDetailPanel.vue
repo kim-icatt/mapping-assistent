@@ -170,6 +170,34 @@ function editDefaultValue() {
   defaultValueInput.value = defaultRule.value?.defaultValue ?? ''
   isEditingDefaultValue.value = true
 }
+
+// Type casting section state
+const showCastSection = computed(() =>
+  validationStatus.value === 'constrained' &&
+  sourceField.value !== null &&
+  targetField.value !== null &&
+  sourceField.value!.dataType !== targetField.value!.dataType,
+)
+
+const castRule = computed(
+  () => selectedMapping.value?.transformations.find((r) => r.type === 'cast') ?? null,
+)
+
+const hasCastRule = computed(() => castRule.value !== null)
+
+function saveCast() {
+  if (!selectedMapping.value || !sourceField.value || !targetField.value) return
+  store.updateTransformation(selectedMapping.value.id, {
+    type: 'cast',
+    castFrom: sourceField.value.dataType,
+    castTo: targetField.value.dataType,
+  })
+}
+
+function removeCast() {
+  if (!selectedMapping.value) return
+  store.removeTransformation(selectedMapping.value.id, 'cast')
+}
 </script>
 
 <template>
@@ -359,6 +387,34 @@ function editDefaultValue() {
               data-testid="default-value-error"
             >{{ defaultValueError }}</p>
           </form>
+        </template>
+
+        <!-- Type casting section (different-type constrained couplings) -->
+        <template v-if="showCastSection">
+          <!-- Read-only summary -->
+          <div
+            v-if="hasCastRule"
+            class="mt-2 flex items-center justify-between gap-2"
+            data-testid="cast-summary"
+          >
+            <span class="text-sm text-amber-700">⇄ {{ castRule?.castFrom }} wordt omgezet naar {{ castRule?.castTo }}</span>
+            <button
+              class="text-xs text-amber-700 underline shrink-0"
+              data-testid="cast-edit"
+              @click="removeCast"
+            >Wijzigen</button>
+          </div>
+
+          <!-- Confirm section -->
+          <div v-else class="mt-2" data-testid="cast-section">
+            <p class="text-sm text-amber-700 mb-1">{{ sourceField.dataType }} wordt omgezet naar {{ targetField.dataType }}</p>
+            <button
+              type="button"
+              class="bg-amber-600 text-white rounded px-3 py-1 text-xs hover:bg-amber-700"
+              data-testid="cast-confirm"
+              @click="saveCast"
+            >Bevestig type casting</button>
+          </div>
         </template>
       </template>
 
