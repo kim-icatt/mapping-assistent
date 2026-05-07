@@ -376,3 +376,89 @@ describe('CouplingDetailPanel — default value form', () => {
     expect(wrapper.find('[data-testid="default-value-summary"]').exists()).toBe(false)
   })
 })
+
+describe('CouplingDetailPanel — type casting section', () => {
+  // Scenario: Type casting section shown for compatible-but-different-type coupling
+  it('shows cast section with direction label and confirm button for number→string coupling', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    // src-opt-num: number, non-required; tgt-1: string, non-required → constrained + different types
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    const section = wrapper.find('[data-testid="cast-section"]')
+    expect(section.exists()).toBe(true)
+    expect(section.text()).toContain('number wordt omgezet naar string')
+    expect(wrapper.find('[data-testid="cast-confirm"]').exists()).toBe(true)
+  })
+
+  // Scenario: Administrator confirms the type cast
+  it('saves cast rule and shows read-only summary after clicking Bevestig type casting', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="cast-confirm"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="cast-section"]').exists()).toBe(false)
+    const summary = wrapper.find('[data-testid="cast-summary"]')
+    expect(summary.exists()).toBe(true)
+
+    const saved = store.mappings.find((m) => m.id === mapping.id)!
+    const rule = saved.transformations.find((r) => r.type === 'cast')
+    expect(rule?.castFrom).toBe('number')
+    expect(rule?.castTo).toBe('string')
+  })
+
+  // Scenario: Administrator removes the type cast rule
+  it('resets to direct and shows confirm button again when Wijzigen is clicked', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-num', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="cast-confirm"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="cast-edit"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="cast-summary"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="cast-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="cast-confirm"]').exists()).toBe(true)
+
+    const saved = store.mappings.find((m) => m.id === mapping.id)!
+    expect(saved.transformations.find((r) => r.type === 'cast')).toBeUndefined()
+  })
+
+  // Scenario: Type casting section not shown for same-type couplings
+  it('does not show cast section for a same-type compatible coupling', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    // src-1: string, tgt-1: string → compatible (no forms shown)
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="cast-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="cast-summary"]').exists()).toBe(false)
+  })
+
+  // Scenario: Type casting section not shown for incompatible couplings
+  it('does not show cast section for an incompatible coupling', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    // src-3: object, tgt-3: string → incompatible
+    const mapping = store.createMapping({ sourceFieldId: 'src-3', targetFieldId: 'tgt-3' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="cast-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="cast-summary"]').exists()).toBe(false)
+  })
+})
