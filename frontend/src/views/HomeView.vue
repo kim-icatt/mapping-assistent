@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import MappingCanvas from '@/components/canvas/MappingCanvas.vue'
 import MappingOverview from '@/components/canvas/MappingOverview.vue'
 import CouplingDetailPanel from '@/components/canvas/CouplingDetailPanel.vue'
@@ -9,6 +10,8 @@ import { useMappings } from '@/composables/useMappings'
 const { fields: sourceFields, schemaName: sourceSchemaName, error: sourceError, loadFromFile: loadSourceFromFile, loadFromUrl: loadSourceFromUrl } = useSourceSchema()
 const { fields: targetFields, schemaName: targetSchemaName, error: targetError, loadFromFile: loadTargetFromFile, loadFromUrl: loadTargetFromUrl } = useTargetSchema()
 const mappingsStore = useMappings()
+
+const activeTab = ref<'koppelingen' | 'ai'>('koppelingen')
 
 async function onSourceFileSelected(file: File) { await loadSourceFromFile(file) }
 async function onSourceUrlEntered(url: string) { await loadSourceFromUrl(url) }
@@ -25,17 +28,19 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
     >
       {{ sourceError || targetError }}
     </div>
-    <div class="flex-1 min-w-0">
-      <MappingCanvas
-        :source-fields="sourceFields"
-        :target-fields="targetFields"
-        :source-label="sourceSchemaName || 'Bronschema'"
-        :target-label="targetSchemaName || 'Doelschema'"
-        @source-file-selected="onSourceFileSelected"
-        @source-url-entered="onSourceUrlEntered"
-        @target-file-selected="onTargetFileSelected"
-        @target-url-entered="onTargetUrlEntered"
-      />
+    <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0">
+<div class="flex-1 min-h-0">
+        <MappingCanvas
+          :source-fields="sourceFields"
+          :target-fields="targetFields"
+          :source-label="sourceSchemaName || 'Bronschema'"
+          :target-label="targetSchemaName || 'Doelschema'"
+          @source-file-selected="onSourceFileSelected"
+          @source-url-entered="onSourceUrlEntered"
+          @target-file-selected="onTargetFileSelected"
+          @target-url-entered="onTargetUrlEntered"
+        />
+      </div>
     </div>
     <div class="w-80 shrink-0">
       <CouplingDetailPanel
@@ -45,6 +50,7 @@ async function onTargetUrlEntered(url: string) { await loadTargetFromUrl(url) }
       />
       <MappingOverview
         v-else
+        v-model:active-tab="activeTab"
         :source-fields="sourceFields"
         :target-fields="targetFields"
       />

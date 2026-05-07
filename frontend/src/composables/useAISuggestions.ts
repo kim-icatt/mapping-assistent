@@ -1,0 +1,202 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { SchemaField, AiSuggestion } from '@/types'
+import type { AISuggestionsGenerated } from '@/domain/events/AISuggestionsGenerated'
+import type { AISuggestionAccepted } from '@/domain/events/AISuggestionAccepted'
+import type { AISuggestionRejected } from '@/domain/events/AISuggestionRejected'
+import { useMappings } from '@/composables/useMappings'
+
+export const CONFIDENCE_THRESHOLD = 0.70
+
+export class AIServiceError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message)
+    this.name = 'AIServiceError'
+  }
+}
+
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const CLAUDE_MODEL = 'anthropic/claude-sonnet-4-6'
+
+interface ClaudeApiSuggestion {
+  sourceField: string
+  targetField: string
+  confidenceScore: number
+}
+
+function flattenFields(fields: SchemaField[]): SchemaField[] {
+  return fields.flatMap((f) => [f, ...(f.children ? flattenFields(f.children) : [])])
+}
+
+export const useAISuggestions = defineStore('aiSuggestions', () => {
+  const suggestions = ref<AiSuggestion[]>([])
+  const lowConfidenceSuggestions = ref<AiSuggestion[]>([])
+  const isLoading = ref(false)
+  const error = ref<AIServiceError | null>(null)
+  const accepted = ref(0)
+  const rejected = ref(0)
+  const totalGenerated = ref(0)
+
+  async function generateSuggestions(
+    sourceFields: SchemaField[],
+    unmappedTargetFields: SchemaField[],
+  ): Promise<AiSuggestion[]> {
+    console.log('[AI] generateSuggestions called', {
+      sourceCount: sourceFields.length,
+      targetCount: unmappedTargetFields.length,
+    })
+
+    if (unmappedTargetFields.length === 0) {
+      console.log('[AI] No unmapped target fields — skipping API call')
+      return []
+    }
+
+    isLoading.value = true
+    error.value = null
+
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined
+    if (!apiKey) throw new AIServiceError('OpenRouter API key not configured')
+
+    const allSourceFields = flattenFields(sourceFields)
+    // Capped to control prompt size and keep API costs low during PoC
+    const sourceEntries = allSourceFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
+    const targetEntries = unmappedTargetFields.slice(0, 5).map((f) => ({ path: f.path, description: f.description }))
+
+    const systemPrompt =
+      'You are a field mapping assistant. Given source and target schema fields (each with a path and optional description), suggest the best one-to-one mappings. Return a JSON object with a "suggestions" array where each item has "sourceField" (path), "targetField" (path), and "confidenceScore" (number 0.0–1.0). Only return valid JSON, no markdown.'
+
+    const userMessage = `Source fields: ${JSON.stringify(sourceEntries)}\n\nUnmapped target fields: ${JSON.stringify(targetEntries)}\n\nReturn JSON suggestions.`
+
+    console.log('[AI] System prompt:\n' + systemPrompt)
+    console.log('[AI] User message:\n' + userMessage)
+
+    let responseData: unknown
+    try {
+      const response = await fetch(OPENROUTER_API_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 1024,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+          ],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new AIServiceError(`OpenRouter API returned ${response.status}`)
+      }
+
+      responseData = await response.json()
+    } catch (e) {
+      isLoading.value = false
+      if (e instanceof AIServiceError) {
+        error.value = e
+        throw e
+      }
+      const err = new AIServiceError('AI service unreachable', e)
+      error.value = err
+      throw err
+    }
+
+    try {
+      const raw =
+        (responseData as { choices: Array<{ message: { content: string } }> }).choices[0]?.message?.content ?? ''
+      const start = raw.indexOf('{')
+      const end = raw.lastIndexOf('}')
+      const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
+      const parsed = JSON.parse(text) as { suggestions: ClaudeApiSuggestion[] }
+
+      const resolved: AiSuggestion[] = parsed.suggestions.reduce<AiSuggestion[]>((acc, s) => {
+        const src = allSourceFields.find((f) => f.path === s.sourceField || f.name === s.sourceField)
+        const tgt = unmappedTargetFields.find(
+          (f) => f.path === s.targetField || f.name === s.targetField,
+        )
+        if (!src || !tgt) return acc
+        acc.push({
+          id: crypto.randomUUID() as string,
+          sourceFieldId: src.id,
+          targetFieldId: tgt.id,
+          confidenceScore: Math.max(0, Math.min(1, s.confidenceScore)),
+          status: 'pending',
+        })
+        return acc
+      }, [])
+
+      console.log('[AI] Suggestions', resolved.map((s) => ({ sourceFieldId: s.sourceFieldId, targetFieldId: s.targetFieldId, score: s.confidenceScore })))
+      totalGenerated.value += resolved.length
+      suggestions.value = resolved.filter((s) => s.confidenceScore >= CONFIDENCE_THRESHOLD)
+      lowConfidenceSuggestions.value = resolved.filter((s) => s.confidenceScore < CONFIDENCE_THRESHOLD)
+
+      const event: AISuggestionsGenerated = {
+        type: 'AISuggestionsGenerated',
+        suggestions: resolved,
+        timestamp: new Date().toISOString(),
+      }
+      window.dispatchEvent(new CustomEvent('AISuggestionsGenerated', { detail: event }))
+
+      return resolved
+    } catch (e) {
+      const err = new AIServiceError('Failed to parse AI response', e)
+      error.value = err
+      throw err
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  function acceptSuggestion(id: string): void {
+    const inHigh = suggestions.value.find((s) => s.id === id)
+    const inLow = !inHigh && lowConfidenceSuggestions.value.find((s) => s.id === id)
+    const suggestion = inHigh ?? inLow
+    if (!suggestion) return
+
+    const mappingsStore = useMappings()
+    mappingsStore.createMapping({ sourceFieldId: suggestion.sourceFieldId, targetFieldId: suggestion.targetFieldId })
+
+    if (inHigh) {
+      suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    } else {
+      lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
+    }
+    accepted.value++
+
+    const event: AISuggestionAccepted = {
+      type: 'AISuggestionAccepted',
+      sourceFieldId: suggestion.sourceFieldId,
+      targetFieldId: suggestion.targetFieldId,
+      confidenceScore: suggestion.confidenceScore,
+      timestamp: new Date().toISOString(),
+    }
+    window.dispatchEvent(new CustomEvent('AISuggestionAccepted', { detail: event }))
+  }
+
+  function rejectSuggestion(id: string): void {
+    const inHigh = suggestions.value.find((s) => s.id === id)
+    const inLow = !inHigh && lowConfidenceSuggestions.value.find((s) => s.id === id)
+    const suggestion = inHigh ?? inLow
+    if (!suggestion) return
+
+    if (inHigh) {
+      suggestions.value = suggestions.value.filter((s) => s.id !== id)
+    } else {
+      lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
+    }
+    rejected.value++
+
+    const event: AISuggestionRejected = {
+      type: 'AISuggestionRejected',
+      sourceFieldId: suggestion.sourceFieldId,
+      targetFieldId: suggestion.targetFieldId,
+      timestamp: new Date().toISOString(),
+    }
+    window.dispatchEvent(new CustomEvent('AISuggestionRejected', { detail: event }))
+  }
+
+  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, generateSuggestions, acceptSuggestion, rejectSuggestion }
+})

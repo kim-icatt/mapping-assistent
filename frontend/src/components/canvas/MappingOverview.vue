@@ -2,18 +2,24 @@
 import { computed, ref } from 'vue'
 import type { SchemaField } from '@/types'
 import { useMappings } from '@/composables/useMappings'
+import AISuggestionPanel from './AISuggestionPanel.vue'
+import { useAISuggestions } from '@/composables/useAISuggestions'
 
 const props = defineProps<{
   sourceFields: SchemaField[]
   targetFields: SchemaField[]
+  activeTab?: 'koppelingen' | 'ai'
 }>()
 
 const emit = defineEmits<{
   FieldMappingRemoved: [payload: { sourceFieldId: string; targetFieldId: string }]
+  'update:activeTab': ['koppelingen' | 'ai']
 }>()
 
 const store = useMappings()
+const aiStore = useAISuggestions()
 const pendingDeleteId = ref<string | null>(null)
+const currentTab = computed(() => props.activeTab ?? 'koppelingen')
 
 const FALLBACK_TYPE = { bg: 'bg-slate-100', text: 'text-slate-400', label: '?' }
 const typeConfig: Record<string, { bg: string; text: string; label: string }> = {
@@ -74,17 +80,48 @@ function cancelDelete() {
 
 <template>
   <div class="flex flex-col bg-white border border-slate-200 rounded-sm overflow-hidden">
-    <!-- Header -->
-    <div class="px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
-      <span class="text-sm font-bold text-slate-700">Koppelingen</span>
-      <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
-        {{ store.mappings.length }}
-      </span>
+    <!-- Tab header -->
+    <div class="border-b border-slate-200 flex" data-testid="tab-header">
+      <button
+        :class="['px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5',
+          currentTab === 'koppelingen'
+            ? 'border-indigo-600 text-indigo-700'
+            : 'border-transparent text-slate-500 hover:text-slate-700']"
+        data-testid="tab-koppelingen"
+        @click="emit('update:activeTab', 'koppelingen')"
+      >
+        Koppelingen
+        <span class="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold">
+          {{ store.mappings.length }}
+        </span>
+      </button>
+      <button
+        :class="['px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors flex items-center gap-1.5',
+          currentTab === 'ai'
+            ? 'border-indigo-600 text-indigo-700'
+            : 'border-transparent text-slate-500 hover:text-slate-700']"
+        data-testid="tab-ai"
+        @click="emit('update:activeTab', 'ai')"
+      >
+        AI Suggesties
+        <span
+          v-if="aiStore.suggestions.length > 0"
+          class="text-[11px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-600 font-semibold"
+        >{{ aiStore.suggestions.length }}</span>
+      </button>
     </div>
 
-    <!-- Empty state -->
+    <!-- AI Suggesties tab -->
+    <AISuggestionPanel
+      v-if="currentTab === 'ai'"
+      :source-fields="props.sourceFields"
+      :target-fields="props.targetFields"
+      class="flex-1 flex flex-col overflow-hidden"
+    />
+
+    <!-- Koppelingen tab: empty state -->
     <div
-      v-if="rows.length === 0"
+      v-else-if="rows.length === 0"
       class="flex-1 flex flex-col items-center justify-center py-10 px-6 text-center text-slate-400 text-sm"
       data-testid="empty-state"
     >
@@ -92,7 +129,7 @@ function cancelDelete() {
       <p class="mt-1">Selecteer een bronveld en een doelveld om te beginnen.</p>
     </div>
 
-    <!-- Mapping rows -->
+    <!-- Koppelingen tab: mapping rows -->
     <div v-else class="flex-1 overflow-y-auto divide-y divide-slate-100">
       <!-- TODO task #44: replace this click handler with bidirectional canvas/row selection -->
       <div

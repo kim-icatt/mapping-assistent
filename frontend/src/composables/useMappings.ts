@@ -31,7 +31,7 @@ export const useMappings = defineStore('mappings', () => {
       id: crypto.randomUUID(),
       sourceFieldId,
       targetFieldId,
-      transformation: { type: 'direct' },
+      transformations: [{ type: 'direct' }],
       status: 'confirmed',
     }
 
@@ -50,7 +50,12 @@ export const useMappings = defineStore('mappings', () => {
       console.warn(`updateTransformation: mapping ${id} not found`)
       return
     }
-    mapping.transformation = rule
+    const idx = mapping.transformations.findIndex((r) => r.type === rule.type)
+    if (idx >= 0) {
+      mapping.transformations[idx] = rule
+    } else {
+      mapping.transformations.push(rule)
+    }
     window.dispatchEvent(
       new CustomEvent('TransformationRuleAdded', { detail: { mappingId: id, rule } }),
     )
