@@ -4,7 +4,6 @@ import type { SchemaField } from '@/types'
 import { useMappings } from '@/composables/useMappings'
 import {
   getValidationStatus,
-  getConstraintReasons,
   getIncompatibilityReason,
 } from '@/utils/validationStatus'
 
@@ -65,11 +64,30 @@ const validationStatus = computed(() =>
     : null,
 )
 
-const constraintReasons = computed(() =>
-  sourceField.value && targetField.value && validationStatus.value === 'constrained'
-    ? getConstraintReasons(sourceField.value, targetField.value)
-    : [],
-)
+const unresolvedConstraintReasons = computed(() => {
+  if (!sourceField.value || !targetField.value || validationStatus.value !== 'constrained') return []
+  const src = sourceField.value
+  const tgt = targetField.value
+  const reasons: string[] = []
+
+  if (showTruncationForm.value && !hasTruncationRule.value) {
+    if (src.maxLength === undefined) {
+      reasons.push(`Bronveld heeft geen maximale lengte, doelveld is beperkt tot ${tgt.maxLength} — mogelijke afkapping`)
+    } else {
+      reasons.push(`Bronveld is langer dan doelveld (max. ${src.maxLength} vs ${tgt.maxLength}) — afkapping vereist`)
+    }
+  }
+
+  if (showDefaultValueForm.value && !hasDefaultValueRule.value) {
+    reasons.push('Bronveld is niet verplicht, doelveld is verplicht — standaardwaarde vereist')
+  }
+
+  if (!showTruncationForm.value && !showDefaultValueForm.value) {
+    reasons.push(`${src.dataType} naar ${tgt.dataType} vereist transformatie`)
+  }
+
+  return reasons
+})
 
 const incompatibilityReason = computed(() =>
   sourceField.value && targetField.value && validationStatus.value === 'incompatible'
@@ -117,6 +135,14 @@ const defaultRule = computed(
 )
 
 const hasDefaultValueRule = computed(() => defaultRule.value !== null)
+
+const allConstraintsResolved = computed(() => {
+  if (validationStatus.value !== 'constrained') return false
+  if (!showTruncationForm.value && !showDefaultValueForm.value) return false
+  if (showTruncationForm.value && !hasTruncationRule.value) return false
+  if (showDefaultValueForm.value && !hasDefaultValueRule.value) return false
+  return true
+})
 
 const defaultValueInputType = computed(() =>
   targetField.value?.dataType === 'number' ? 'number' : 'text',
@@ -230,8 +256,8 @@ function editDefaultValue() {
     <div
       class="mx-4 mb-4 rounded p-3 text-sm"
       :class="{
-        'bg-emerald-50 text-emerald-700': validationStatus === 'compatible',
-        'bg-amber-50 text-amber-700': validationStatus === 'constrained',
+        'bg-emerald-50 text-emerald-700': validationStatus === 'compatible' || allConstraintsResolved,
+        'bg-amber-50 text-amber-700': validationStatus === 'constrained' && !allConstraintsResolved,
         'bg-red-50 text-red-700': validationStatus === 'incompatible',
       }"
       role="status"
@@ -244,7 +270,12 @@ function editDefaultValue() {
 
       <!-- Constrained -->
       <template v-else-if="validationStatus === 'constrained'">
-        <span v-for="(reason, i) in constraintReasons" :key="i" class="block font-medium">⚠ {{ reason }}</span>
+        <template v-if="allConstraintsResolved">
+          <span class="font-medium" data-testid="constraints-resolved">✓ Transformatieregels ingesteld.</span>
+        </template>
+        <template v-else>
+          <span v-for="(reason, i) in unresolvedConstraintReasons" :key="i" class="block font-medium">⚠ {{ reason }}</span>
+        </template>
 
         <!-- Truncation form (string→string with target maxLength) -->
         <template v-if="showTruncationForm">

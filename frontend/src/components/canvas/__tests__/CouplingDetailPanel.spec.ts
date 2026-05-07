@@ -12,6 +12,8 @@ const sourceFields: SchemaField[] = [
   { id: 'src-opt', name: 'opmerking', path: 'opmerking', dataType: 'string', required: false },
   { id: 'src-req', name: 'verplicht_bron', path: 'verplicht_bron', dataType: 'string', required: true },
   { id: 'src-opt-num', name: 'aantal', path: 'aantal', dataType: 'number', required: false },
+  // optional + long string → triggers both truncation AND default value constraints
+  { id: 'src-opt-long', name: 'tekst', path: 'tekst', dataType: 'string', required: false, maxLength: 200 },
 ]
 
 const targetFields: SchemaField[] = [
@@ -20,6 +22,8 @@ const targetFields: SchemaField[] = [
   { id: 'tgt-3', name: 'adresString', path: 'adresString', dataType: 'string', required: false },
   { id: 'tgt-req', name: 'toelichting', path: 'toelichting', dataType: 'string', required: true },
   { id: 'tgt-req-num', name: 'nummer', path: 'nummer', dataType: 'number', required: true },
+  // required + short string → both constraints with src-opt-long
+  { id: 'tgt-req-short', name: 'code', path: 'code', dataType: 'string', required: true, maxLength: 50 },
 ]
 
 function mountPanel() {
@@ -246,6 +250,89 @@ describe('CouplingDetailPanel — truncation form', () => {
 
     expect(wrapper.find('[data-testid="truncation-error"]').exists()).toBe(true)
     expect(wrapper.find<HTMLButtonElement>('[data-testid="truncation-save"]').element.disabled).toBe(true)
+  })
+})
+
+describe('CouplingDetailPanel — constraint resolution', () => {
+  it('shows success state when truncation rule is saved', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-2', targetFieldId: 'tgt-2' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="truncation-input"]').setValue(40)
+    await wrapper.find('[data-testid="truncation-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
+    expect(validationSection.classes()).toContain('bg-emerald-50')
+    expect(wrapper.find('[data-testid="constraints-resolved"]').exists()).toBe(true)
+    expect(validationSection.text()).not.toMatch(/⚠/)
+  })
+
+  it('shows success state when default value rule is saved', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="default-value-input"]').setValue('onbekend')
+    await wrapper.find('[data-testid="default-value-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const validationSection = wrapper.find('[data-testid="detail-validation-section"]')
+    expect(validationSection.classes()).toContain('bg-emerald-50')
+    expect(wrapper.find('[data-testid="constraints-resolved"]').exists()).toBe(true)
+    expect(validationSection.text()).not.toMatch(/⚠/)
+  })
+
+  it('hides only the resolved warning when one of two constraints is satisfied', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    // src-opt-long (optional, maxLength 200) → tgt-req-short (required, maxLength 50): both constraints
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt-long', targetFieldId: 'tgt-req-short' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    // Both warnings shown initially
+    const section = wrapper.find('[data-testid="detail-validation-section"]')
+    expect(section.text()).toMatch(/afkapping/i)
+    expect(section.text()).toMatch(/standaardwaarde/i)
+
+    // Satisfy only the truncation constraint
+    await wrapper.find('[data-testid="truncation-input"]').setValue(40)
+    await wrapper.find('[data-testid="truncation-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    // Truncation warning gone, default value warning still shown
+    expect(section.text()).not.toMatch(/afkapping/i)
+    expect(section.text()).toMatch(/standaardwaarde/i)
+    // Still amber — not fully resolved
+    expect(section.classes()).toContain('bg-amber-50')
+    expect(wrapper.find('[data-testid="constraints-resolved"]').exists()).toBe(false)
+  })
+
+  it('reverts to warning state when editing a saved rule (form re-opened)', async () => {
+    const wrapper = mountPanel()
+    const store = useMappings()
+    const mapping = store.createMapping({ sourceFieldId: 'src-opt', targetFieldId: 'tgt-req' })!
+    store.selectMapping(mapping.id)
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="default-value-input"]').setValue('onbekend')
+    await wrapper.find('[data-testid="default-value-save"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    // Rule exists → resolved
+    expect(wrapper.find('[data-testid="constraints-resolved"]').exists()).toBe(true)
+
+    // Open edit form — rule still exists, state should remain resolved
+    await wrapper.find('[data-testid="default-value-edit"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="constraints-resolved"]').exists()).toBe(true)
   })
 })
 
