@@ -36,6 +36,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
   const accepted = ref(0)
   const rejected = ref(0)
   const totalGenerated = ref(0)
+  const rejectedPairs = ref<Set<string>>(new Set())
 
   async function generateSuggestions(
     sourceFields: SchemaField[],
@@ -118,6 +119,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
           (f) => f.path === s.targetField || f.name === s.targetField,
         )
         if (!src || !tgt) return acc
+        if (rejectedPairs.value.has(`${src.id}::${tgt.id}`)) return acc
         acc.push({
           id: crypto.randomUUID() as string,
           sourceFieldId: src.id,
@@ -188,6 +190,7 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
       lowConfidenceSuggestions.value = lowConfidenceSuggestions.value.filter((s) => s.id !== id)
     }
     rejected.value++
+    rejectedPairs.value.add(`${suggestion.sourceFieldId}::${suggestion.targetFieldId}`)
 
     const event: AISuggestionRejected = {
       type: 'AISuggestionRejected',
@@ -198,5 +201,5 @@ export const useAISuggestions = defineStore('aiSuggestions', () => {
     window.dispatchEvent(new CustomEvent('AISuggestionRejected', { detail: event }))
   }
 
-  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, generateSuggestions, acceptSuggestion, rejectSuggestion }
+  return { suggestions, lowConfidenceSuggestions, isLoading, error, accepted, rejected, totalGenerated, rejectedPairs, generateSuggestions, acceptSuggestion, rejectSuggestion }
 })
