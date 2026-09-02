@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { Schema } from '@/domain/schema'
 import SourceSchemaPanel from './SourceSchemaPanel.vue'
@@ -24,13 +24,40 @@ const emit = defineEmits<{
 }>()
 
 const mappingsStore = useMappings()
-const { selectedMappingId, mappings } = storeToRefs(mappingsStore)
+const { selectedMappingId, selectionNonce, mappings } = storeToRefs(mappingsStore)
 const selectedSourceId = ref<string | null>(null)
 
 const sourcePanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
 const targetPanelRef = ref<InstanceType<typeof SourceSchemaPanel> | null>(null)
+const sourceColumnRef = ref<HTMLElement | null>(null)
+const targetColumnRef = ref<HTMLElement | null>(null)
 
-watch(selectedMappingId, async (id) => {
+// Clicking anywhere outside both schema panels cancels an in-progress manual
+// mapping selection. A click inside either column is handled by that
+// column's own field-click handler first (component listeners fire before a
+// document-level bubble listener), so this never undoes the very click that
+// just set the selection.
+function clearSelectionIfOutsidePanels(event: MouseEvent) {
+  const target = event.target as Node | null
+  if (!target) return
+  if (sourceColumnRef.value?.contains(target)) return
+  if (targetColumnRef.value?.contains(target)) return
+  selectedSourceId.value = null
+}
+
+onMounted(() => {
+  document.addEventListener('click', clearSelectionIfOutsidePanels)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', clearSelectionIfOutsidePanels)
+})
+
+// Watches selectionNonce (bumped on every selectMapping() call) rather than
+// selectedMappingId directly, so reselecting the currently selected mapping
+// still scrolls — a value-based watch on selectedMappingId would no-op.
+watch(selectionNonce, async () => {
+  const id = selectedMappingId.value
   if (!id) return
   const mapping = mappings.value.find((m) => m.id === id)
   if (!mapping) return
@@ -80,8 +107,9 @@ function onSourceFileChange(event: Event) {
   if (file) emit('SourceFileSelected', file)
 }
 
+// TODO(production): remove temporary default link
 const sourceUrlInput = ref(
-  'https://cors.redoc.ly/https://esuite-data-extractie-gcp2.esuite-development.net/q/openapi',
+  'https://raw.githubusercontent.com/NL-AMS-LOCGOV/esuite-data-extractie/refs/heads/main/openapi-spec/OpenAPI.yaml',
 )
 
 function onSourceUrlSubmit() {
@@ -94,6 +122,7 @@ function onTargetFileChange(event: Event) {
   if (file) emit('TargetFileSelected', file)
 }
 
+// TODO(production): remove temporary default link
 const targetUrlInput = ref('https://openzaak.dev.kiss-demo.nl/zaken/api/v1/openapi.json')
 
 function onTargetUrlSubmit() {
@@ -105,9 +134,10 @@ function onTargetUrlSubmit() {
 <template>
   <div class="w-full h-full flex flex-col bg-slate-100">
     <!-- Two-panel layout -->
-    <div class="relative flex-1 flex overflow-hidden gap-8">
+    <div class="relative flex-1 flex overflow-hidden gap-12">
       <!-- Source column -->
       <div
+        ref="sourceColumnRef"
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="source-column"
       >
@@ -168,12 +198,14 @@ function onTargetUrlSubmit() {
           data-scroll-container
           :schema="sourceSchema"
           side="source"
+          :selected-field-id="selectedSourceId"
           @field-click="onSourceFieldClick"
         />
       </div>
 
       <!-- Target column -->
       <div
+        ref="targetColumnRef"
         class="flex-1 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-sm"
         data-testid="target-column"
       >

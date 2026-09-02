@@ -19,10 +19,11 @@ const targetNodes: SchemaFieldNode[] = [
 const sourceSchema = buildSchema('', sourceNodes)
 const targetSchema = buildSchema('', targetNodes)
 
-function mountCanvas() {
+function mountCanvas(overrides: { attachTo?: Element } = {}) {
   return mount(MappingCanvas, {
     global: { plugins: [createPinia()] },
     props: { sourceSchema, targetSchema },
+    ...overrides,
   })
 }
 
@@ -151,6 +152,93 @@ describe('MappingCanvas', () => {
   })
 })
 
+// Task #138: visible selected-state while forming a manual mapping
+describe('Selected field while mapping manually', () => {
+  // Scenario: Clicking a field to start a mapping shows a selected-state
+  it('marks the clicked source field selected in the source panel', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+  })
+
+  // Scenario: The selected-state remains visible while choosing a match
+  it('keeps the selected-state visible while searching the target panel for a match', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    await wrapper.find('[data-testid="target-column"] [data-testid="search-input"]').setValue('u')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+  })
+
+  // Scenario: The selected-state survives scrolling the originating field out of view and back
+  it('keeps the selected-state after a scroll event on the source panel', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    await wrapper.find('[data-testid="source-column"]').trigger('scroll')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+  })
+
+  // Scenario: Selecting the matching field completes the mapping and clears the selected-state
+  it('clears the selected-state once the matching target field completes the mapping', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+    await wrapper.find('[data-field-id="tgt-1"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('false')
+  })
+
+  // Scenario: Selecting a different field on the same side moves the selection
+  it('moves the selected-state to a newly clicked source field, clearing the previous one', async () => {
+    const wrapper = mountCanvas()
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+    await wrapper.find('[data-field-id="src-2"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('false')
+    expect(wrapper.find('[data-field-id="src-2"]').attributes('data-selected')).toBe('true')
+  })
+
+  // Scenario: Clicking outside both schema panels cancels the selection
+  it('clears the selected-state when clicking outside both schema panels', async () => {
+    const wrapper = mountCanvas({ attachTo: document.body })
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('false')
+
+    wrapper.unmount()
+  })
+
+  // A click that lands on the field itself must not be immediately undone by
+  // the outside-click listener (event-order regression guard).
+  it('does not clear the selection from the very click that set it', async () => {
+    const wrapper = mountCanvas({ attachTo: document.body })
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+
+    wrapper.unmount()
+  })
+
+  it('does not clear the selection when clicking elsewhere inside the source or target column', async () => {
+    const wrapper = mountCanvas({ attachTo: document.body })
+    await wrapper.find('[data-field-id="src-1"]').trigger('click')
+
+    await wrapper.find('[data-testid="target-column"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-field-id="src-1"]').attributes('data-selected')).toBe('true')
+
+    wrapper.unmount()
+  })
+})
+
 describe('Coverage rate counters', () => {
   // Scenario: Required target fields counter visible after loading schemas
   it('shows "0 van 8 doelvelden gekoppeld" when no mappings exist', () => {
@@ -233,6 +321,42 @@ describe('Scroll to coupled fields on CouplingSelected', () => {
     scrollIntoViewMock.mockReset()
 
     store.selectMapping(null)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).not.toHaveBeenCalled()
+
+    wrapper.unmount()
+  })
+
+  // Scenario: Reselecting the currently selected mapping still scrolls both panels
+  it('scrolls both panels again when the already-selected mapping is reselected', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await flushPromises()
+    scrollIntoViewMock.mockReset()
+
+    store.selectMapping(mapping.id)
+    await flushPromises()
+
+    expect(scrollIntoViewMock).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+  })
+
+  // Scenario: Manual scrolling still works after selecting a mapping
+  it('manually scrolling a panel after selection does not trigger another field scroll', async () => {
+    const wrapper = mountCanvas()
+    const store = useMappings()
+
+    const mapping = store.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })!
+    store.selectMapping(mapping.id)
+    await flushPromises()
+    scrollIntoViewMock.mockReset()
+
+    await wrapper.find('[data-scroll-container]').trigger('scroll')
     await flushPromises()
 
     expect(scrollIntoViewMock).not.toHaveBeenCalled()

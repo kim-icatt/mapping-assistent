@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import type { SchemaField } from '@/types'
 import type { Schema } from '@/domain/schema'
 import { useMappings } from '@/composables/useMappings'
+import { useSuggestionScope } from '@/composables/useSuggestionScope'
 import { highlightHtml } from '@/utils/highlightSegments'
 
 const rootEl = ref<HTMLElement | null>(null)
@@ -11,13 +12,56 @@ const rootEl = ref<HTMLElement | null>(null)
 const props = defineProps<{
   schema: Schema
   side?: 'source' | 'target'
+  selectedFieldId?: string | null
 }>()
 
 const emit = defineEmits<{
   'field-click': [fieldId: string]
 }>()
 
-const { mappings } = storeToRefs(useMappings())
+const mappingsStore = useMappings()
+const { mappings, hoveredFieldId, hoveredFieldSide } = storeToRefs(mappingsStore)
+const scopeStore = useSuggestionScope()
+
+const scopeSide = computed<'source' | 'target'>(() => props.side ?? 'source')
+
+// Per Feature #89: only the source side is scope-selectable. Target is
+// always fully included in AI calls, so no scope UI is rendered on it.
+const scopeEnabled = computed(() => scopeSide.value === 'source')
+
+watch(
+  () => props.schema,
+  (s) => {
+    if (scopeEnabled.value) scopeStore.pruneAgainst(scopeSide.value, s)
+  },
+  { immediate: true },
+)
+
+const allRootsSelected = computed(() => {
+  const roots = props.schema.roots
+  return roots.length > 0 && roots.every((r) => scopeStore.isSelected(scopeSide.value, r.id))
+})
+function toggleSelectAllScope() {
+  const roots = props.schema.roots
+  const allSelected = allRootsSelected.value
+  for (const r of roots) {
+    const currently = scopeStore.isSelected(scopeSide.value, r.id)
+    if (allSelected && currently) scopeStore.toggle(scopeSide.value, r.id)
+    else if (!allSelected && !currently) scopeStore.toggle(scopeSide.value, r.id)
+  }
+}
+
+function isGroupSelected(rootIds: readonly string[]): boolean {
+  return rootIds.length > 0 && rootIds.every((id) => scopeStore.isSelected(scopeSide.value, id))
+}
+function toggleGroupScope(rootIds: readonly string[]) {
+  const allSelected = isGroupSelected(rootIds)
+  for (const id of rootIds) {
+    const currently = scopeStore.isSelected(scopeSide.value, id)
+    if (allSelected && currently) scopeStore.toggle(scopeSide.value, id)
+    else if (!allSelected && !currently) scopeStore.toggle(scopeSide.value, id)
+  }
+}
 
 const searchQuery = ref('')
 const filterStatus = ref<'all' | 'mapped' | 'unmapped'>('all')
@@ -30,6 +74,50 @@ const mappedFieldIds = computed(() => {
   }
   return ids
 })
+
+// A field row is highlighted when it is directly hovered, or it is the
+// mapped counterpart of the field currently hovered (in either panel —
+// hoveredFieldId/hoveredFieldSide are shared store state). Source and
+// target schemas are parsed independently and can share raw field ids, so
+// every comparison must also check the hovered field's side — otherwise an
+// unrelated same-named field on the other schema lights up too.
+const highlightedFieldIds = computed(() => {
+  const ids = new Set<string>()
+  const hovered = hoveredFieldId.value
+  const hoveredSide = hoveredFieldSide.value
+  if (!hovered || !hoveredSide) return ids
+
+  if (hoveredSide === scopeSide.value) {
+    ids.add(hovered)
+    return ids
+  }
+
+  for (const m of mappings.value) {
+    const hoveredMatches =
+      hoveredSide === 'source' ? m.sourceFieldId === hovered : m.targetFieldId === hovered
+    if (hoveredMatches) {
+      ids.add(scopeSide.value === 'source' ? m.sourceFieldId : m.targetFieldId)
+    }
+  }
+  return ids
+})
+
+function isFieldHighlighted(fieldId: string): boolean {
+  return highlightedFieldIds.value.has(fieldId)
+}
+
+// The field currently used to start a manual mapping (source-first
+// click-to-map). Distinct from isFieldHighlighted (hover) — a field can be
+// selected and highlighted at the same time, so selected wins visually.
+function isFieldSelected(fieldId: string): boolean {
+  return fieldId === props.selectedFieldId
+}
+
+function fieldRowClass(fieldId: string): string {
+  if (isFieldSelected(fieldId)) return 'bg-blue-50 ring-1 ring-blue-300 ring-inset'
+  if (isFieldHighlighted(fieldId)) return 'bg-indigo-50'
+  return 'hover:bg-slate-50'
+}
 
 function fieldMatchesName(field: SchemaField): boolean {
   if (!searchQuery.value) return true
@@ -182,16 +270,21 @@ function tc(dataType: string) {
 }
 
 async function scrollToField(fieldId: string): Promise<void> {
-  const parent = props.schema.parentOf(fieldId)
-  const topLevel = parent ?? props.schema.byId(fieldId)
+  const path = props.schema.pathOf(fieldId)
+  const topLevel = path[0]
   if (!topLevel) return
 
   const dot = topLevel.path.indexOf('.')
   const groupName = dot >= 0 ? topLevel.path.slice(0, dot) : ''
   groupCollapsed.value = { ...groupCollapsed.value, [groupName]: false }
 
-  if (parent) {
-    fieldCollapsed.value = { ...fieldCollapsed.value, [parent.id]: false }
+  // Expand every ancestor along the full root→field chain, not just the
+  // immediate parent — a no-op beyond one level at today's 2-level render
+  // cap, but correct if the tree ever renders deeper.
+  const ancestors = path.slice(0, -1)
+  if (ancestors.length > 0) {
+    const expanded = Object.fromEntries(ancestors.map((a) => [a.id, false]))
+    fieldCollapsed.value = { ...fieldCollapsed.value, ...expanded }
   }
 
   await nextTick()
@@ -276,6 +369,14 @@ defineExpose({ scrollToField })
             Niet gekoppeld
           </button>
         </div>
+        <button
+          v-if="scopeEnabled"
+          :data-testid="`scope-select-all-${side}`"
+          class="text-[11px] px-2 py-1 rounded border bg-white text-slate-500 border-slate-200 hover:text-slate-700 transition-colors"
+          @click="toggleSelectAllScope"
+        >
+          {{ allRootsSelected ? 'Deselecteer alles (bereik)' : 'Selecteer alles (bereik)' }}
+        </button>
       </div>
 
       <!-- No-results state -->
@@ -296,24 +397,41 @@ defineExpose({ scrollToField })
         :data-testid="hasNamedGroups ? `schema-group-${group.name}` : undefined"
       >
         <!-- Group header (only when named groups) -->
-        <button
+        <div
           v-if="hasNamedGroups"
-          :data-testid="`schema-group-toggle-${group.name}`"
-          :data-anchor-group="`${side}:${group.name}`"
-          class="w-full flex items-center gap-2 px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-left text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
-          @click="toggleGroup(group.name)"
+          class="w-full flex items-center bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
         >
-          <span class="text-slate-400">{{ isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
-          <span
-            v-html="
-              highlightHtml(
-                group.name,
-                searchQuery,
-                'bg-yellow-200 text-inherit rounded font-semibold',
-              )
-            "
-          />
-        </button>
+          <button
+            :data-testid="`schema-group-toggle-${group.name}`"
+            :data-anchor-group="`${side}:${group.name}`"
+            class="flex-1 flex items-center gap-2 px-3 py-1.5 text-left"
+            @click="toggleGroup(group.name)"
+          >
+            <span class="text-slate-400">{{ isGroupExpanded(group.name) ? '▾' : '▸' }}</span>
+            <span
+              v-html="
+                highlightHtml(
+                  group.name,
+                  searchQuery,
+                  'bg-yellow-200 text-inherit rounded font-semibold',
+                )
+              "
+            />
+          </button>
+          <label
+            v-if="scopeEnabled"
+            class="shrink-0 pr-3 pl-2 flex items-center cursor-pointer"
+            :title="`Bereik: ${group.name}`"
+            @click.stop
+          >
+            <input
+              type="checkbox"
+              :data-testid="`scope-checkbox-${side}-${group.name}`"
+              :checked="isGroupSelected(group.fields.map((f) => f.id))"
+              @change="toggleGroupScope(group.fields.map((f) => f.id))"
+            />
+          </label>
+        </div>
 
         <!-- Group fields -->
         <div
@@ -369,8 +487,16 @@ defineExpose({ scrollToField })
                   :data-field-side="side"
                   :data-child-of-field="`${side}:${field.id}`"
                   :data-field-in-group="`${side}:${group.name}`"
-                  class="w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50"
+                  :data-highlighted="isFieldHighlighted(child.id)"
+                  :data-selected="isFieldSelected(child.id)"
+                  :aria-selected="isFieldSelected(child.id) || undefined"
+                  :class="[
+                    'w-full flex items-center gap-2 py-2 pl-2 pr-3 border-b border-slate-100 text-sm cursor-pointer',
+                    fieldRowClass(child.id),
+                  ]"
                   @click="emit('field-click', child.id)"
+                  @mouseenter="mappingsStore.hoverField(child.id, scopeSide)"
+                  @mouseleave="mappingsStore.hoverField(null)"
                 >
                   <span
                     class="font-mono truncate flex-1 text-slate-700 text-[13px]"
@@ -408,8 +534,16 @@ defineExpose({ scrollToField })
               :data-field-id="field.id"
               :data-field-side="side"
               :data-field-in-group="`${side}:${group.name}`"
-              class="w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50 transition-colors"
+              :data-highlighted="isFieldHighlighted(field.id)"
+              :data-selected="isFieldSelected(field.id)"
+              :aria-selected="isFieldSelected(field.id) || undefined"
+              :class="[
+                'w-full flex items-center gap-2 py-2 pl-3 pr-3 border-b border-slate-100 text-sm cursor-pointer transition-colors',
+                fieldRowClass(field.id),
+              ]"
               @click="emit('field-click', field.id)"
+              @mouseenter="mappingsStore.hoverField(field.id, scopeSide)"
+              @mouseleave="mappingsStore.hoverField(null)"
             >
               <span class="shrink-0 w-1.5 h-1.5 rounded-full bg-slate-200" />
               <span

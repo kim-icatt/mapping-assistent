@@ -14,7 +14,11 @@
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "lint:ci": "run-s lint:ci:*",
+    "lint:ci:oxlint": "oxlint .",
+    "lint:ci:eslint": "eslint .",
+    "format": "prettier --write --experimental-cli src/",
+    "format:ci": "prettier --check --experimental-cli src/"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.4",
@@ -56,6 +60,6 @@
     "vue-tsc": "^3.2.6"
   },
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=26.7.0"
   }
 }

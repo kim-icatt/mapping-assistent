@@ -9,7 +9,9 @@
       "Bash(gh pr *)",
       "Bash(gh sub-issue *)",
       "Bash(npx vitest *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(npx eslint *)"
     ]
   }
 }

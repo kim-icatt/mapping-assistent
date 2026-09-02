@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AISuggestionPanel from '../AISuggestionPanel.vue'
-import { useAISuggestions, AIServiceError } from '@/composables/useAISuggestions'
+import {
+  useAISuggestions,
+  AIServiceError,
+  AIKeyRejectedError,
+} from '@/composables/useAISuggestions'
 import { useMappings } from '@/composables/useMappings'
+import { useApiKey, resetApiKeyState, syncEnvKey } from '@/composables/useApiKey'
+import { useSuggestionScope } from '@/composables/useSuggestionScope'
 import type { AiSuggestion } from '@/types'
 import { buildSchema, type SchemaFieldNode } from '@/domain/schema'
 
@@ -30,6 +36,72 @@ const targetNodes: SchemaFieldNode[] = [
 const sourceSchema = buildSchema('', sourceNodes)
 const targetSchema = buildSchema('', targetNodes)
 
+// Schema with container fields for feature 87 tests
+const sourceNodesWithContainer: SchemaFieldNode[] = [
+  {
+    id: 'src-container',
+    name: 'Zaak',
+    path: 'Zaak',
+    dataType: 'object',
+    required: false,
+    children: [
+      {
+        id: 'src-1',
+        name: 'identificatie',
+        path: 'Zaak.identificatie',
+        dataType: 'string',
+        required: true,
+      },
+      {
+        id: 'src-nested-container',
+        name: 'betrokkene',
+        path: 'Zaak.betrokkene',
+        dataType: 'object',
+        required: false,
+        children: [
+          {
+            id: 'src-deep',
+            name: 'naam',
+            path: 'Zaak.betrokkene.naam',
+            dataType: 'string',
+            required: false,
+          },
+        ],
+      },
+    ],
+  },
+]
+const targetNodesWithContainer: SchemaFieldNode[] = [
+  {
+    id: 'tgt-container',
+    name: 'Zaak',
+    path: 'Zaak',
+    dataType: 'object',
+    required: false,
+    children: [
+      { id: 'tgt-1', name: 'uuid', path: 'Zaak.uuid', dataType: 'string', required: true },
+      {
+        id: 'tgt-nested-container',
+        name: 'betrokkene',
+        path: 'Zaak.betrokkene',
+        dataType: 'object',
+        required: false,
+        children: [
+          {
+            id: 'tgt-deep',
+            name: 'naam',
+            path: 'Zaak.betrokkene.naam',
+            dataType: 'string',
+            required: false,
+          },
+        ],
+      },
+    ],
+  },
+]
+const sourceSchemaWithContainers = buildSchema('', sourceNodesWithContainer)
+const targetSchemaWithContainers = buildSchema('', targetNodesWithContainer)
+
 function mountPanel(props = { sourceSchema, targetSchema }) {
   return mount(AISuggestionPanel, {
     global: { plugins: [createPinia()], stubs: { Teleport: true } },
@@ -39,6 +111,25 @@ function mountPanel(props = { sourceSchema, targetSchema }) {
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  resetApiKeyState()
+  // Explicitly blank the env key and re-sync its reactive mirror rather than
+  // relying on it being ambiently absent — a local .env.local with a real key
+  // would otherwise leak in, since envKeyRef is only captured at module load.
+  vi.stubEnv('VITE_OPENROUTER_API_KEY', '')
+  syncEnvKey()
+  useApiKey().provideKey('test-key')
+  try {
+    localStorage.removeItem('ma_suggestion_scope_source_root_ids')
+    localStorage.removeItem('ma_suggestion_scope_target_root_ids')
+  } catch {
+    // ignore
+  }
+})
+
+afterEach(() => {
+  resetApiKeyState()
+  vi.unstubAllEnvs()
+  syncEnvKey()
 })
 
 describe('AISuggestionPanel', () => {
@@ -73,14 +164,67 @@ describe('AISuggestionPanel', () => {
     ] as AiSuggestion[]
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('[data-testid="suggestion-card"]')).toHaveLength(1)
-    expect(wrapper.text()).toContain('identificatie')
-    expect(wrapper.text()).toContain('uuid')
+    expect(wrapper.text()).toContain('Zaak.identificatie')
+    expect(wrapper.text()).toContain('Zaak.uuid')
+  })
+
+  // Task #112: reasoning must be wired through from the store to the card
+  it('passes reasoning through to the suggestion card as a Toelichting toggle', async () => {
+    const wrapper = mountPanel()
+    const aiStore = useAISuggestions()
+    aiStore.suggestions = [
+      {
+        id: '1',
+        sourceFieldId: 'src-1',
+        targetFieldId: 'tgt-1',
+        confidenceScore: 0.97,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+        status: 'pending',
+      },
+    ] as AiSuggestion[]
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+    expect(wrapper.find('[data-testid="toelichting-text"]').text()).toBe(
+      'Beide velden bevatten het klant-identificatienummer.',
+    )
+  })
+
+  // Task #112: reasoning must be wired through for low-confidence suggestions too
+  it('passes reasoning through to low-confidence suggestion cards', async () => {
+    const wrapper = mountPanel()
+    const aiStore = useAISuggestions()
+    aiStore.lowConfidenceSuggestions = [
+      {
+        id: '1',
+        sourceFieldId: 'src-1',
+        targetFieldId: 'tgt-1',
+        confidenceScore: 0.55,
+        reasoning: 'Beide velden bevatten het klant-identificatienummer.',
+        status: 'pending',
+      },
+    ] as AiSuggestion[]
+    await wrapper.vm.$nextTick()
+
+    await wrapper.find('[data-testid="low-confidence-toggle"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('[data-testid="toelichting-toggle"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="toelichting-toggle"]').trigger('click')
+    expect(wrapper.find('[data-testid="toelichting-text"]').text()).toBe(
+      'Beide velden bevatten het klant-identificatienummer.',
+    )
   })
 
   // Scenario: Empty state when no unmapped target fields
   it('shows empty state when all target fields are already mapped', async () => {
     const wrapper = mountPanel()
     const mappingsStore = useMappings()
+    const scopeStore = useSuggestionScope()
+    scopeStore.toggle('source', 'src-1')
+    scopeStore.toggle('target', 'tgt-1')
+    scopeStore.toggle('target', 'tgt-2')
     mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-1' })
     // Simulate tgt-2 also mapped
     mappingsStore.createMapping({ sourceFieldId: 'src-1', targetFieldId: 'tgt-2' })
@@ -92,6 +236,10 @@ describe('AISuggestionPanel', () => {
   it('calls generateSuggestions when generate button is clicked', async () => {
     const wrapper = mountPanel()
     const aiStore = useAISuggestions()
+    const scopeStore = useSuggestionScope()
+    scopeStore.toggle('source', 'src-1')
+    scopeStore.toggle('target', 'tgt-1')
+    await wrapper.vm.$nextTick()
     const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
     await wrapper.find('[data-testid="generate-button"]').trigger('click')
     expect(spy).toHaveBeenCalledOnce()
@@ -117,6 +265,9 @@ describe('AISuggestionPanel', () => {
 
     it('shows "Opnieuw genereren" button in error state when unmapped fields exist', async () => {
       const wrapper = mountPanel()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-1')
+      scopeStore.toggle('target', 'tgt-1')
       const aiStore = useAISuggestions()
       aiStore.error = new AIServiceError('AI service unreachable')
       await wrapper.vm.$nextTick()
@@ -156,6 +307,9 @@ describe('AISuggestionPanel', () => {
 
     it('calls generateSuggestions when retry button in error state is clicked', async () => {
       const wrapper = mountPanel()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-1')
+      scopeStore.toggle('target', 'tgt-1')
       const aiStore = useAISuggestions()
       aiStore.error = new AIServiceError('AI service unreachable')
       const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
@@ -332,6 +486,54 @@ describe('AISuggestionPanel', () => {
       const dialog = wrapper.find('[data-testid="stats-dialog"]')
       expect(dialog.text()).toContain('1 geaccepteerd')
       expect(dialog.text()).toContain('1 afgewezen')
+    })
+  })
+
+  describe('no API key placeholder', () => {
+    beforeEach(() => {
+      resetApiKeyState() // clear sessionKey, storedKey and localStorage
+    })
+
+    it('shows the placeholder when no API key is available', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="generate-button"]').exists()).toBe(false)
+    })
+
+    it('calls getKey when the setup CTA is clicked', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      const ctaBtn = wrapper.find('[data-testid="setup-key-button"]')
+      expect(ctaBtn.exists()).toBe(true)
+      await ctaBtn.trigger('click')
+      // getKey() is called on the singleton; isPromptVisible should be true
+      const { isPromptVisible } = useApiKey()
+      expect(isPromptVisible.value).toBe(true)
+    })
+
+    it('shows the generate button after a key is provided', async () => {
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(true)
+
+      const { provideKey } = useApiKey()
+      provideKey('new-test-key')
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="generate-button"]').exists()).toBe(true)
+    })
+
+    it('shows generate button when env var key is configured', async () => {
+      vi.stubEnv('VITE_OPENROUTER_API_KEY', 'env-key-123')
+      syncEnvKey() // sync reactive mirror so hasKey reacts to the stub
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="generate-button"]').exists()).toBe(true)
+      vi.unstubAllEnvs()
+      syncEnvKey() // restore reactive mirror
     })
   })
 
@@ -542,6 +744,262 @@ describe('AISuggestionPanel', () => {
 
       expect(aiStore.lowConfidenceSuggestions).toHaveLength(0)
       expect(mappingsStore.mappings).toHaveLength(0)
+    })
+  })
+
+  describe('API key affordance', () => {
+    it('shows affordance when a key is stored', () => {
+      // beforeEach already sets a key via provideKey('test-key')
+      const wrapper = mountPanel()
+      expect(wrapper.find('[data-testid="api-key-affordance"]').exists()).toBe(true)
+    })
+
+    it('hides affordance when no key is stored', async () => {
+      resetApiKeyState() // clears key set in beforeEach
+      const wrapper = mountPanel()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="api-key-affordance"]').exists()).toBe(false)
+    })
+
+    it('removes key and shows placeholder when "Verwijder sleutel" is clicked', async () => {
+      const wrapper = mountPanel()
+      const { hasKey } = useApiKey()
+      expect(hasKey.value).toBe(true)
+      await wrapper.find('[data-testid="remove-key-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(hasKey.value).toBe(false)
+      expect(wrapper.find('[data-testid="no-key-placeholder"]').exists()).toBe(true)
+    })
+
+    it('removes key and opens prompt when "Wijzig sleutel" is clicked', async () => {
+      const wrapper = mountPanel()
+      const { isPromptVisible } = useApiKey()
+      await wrapper.find('[data-testid="change-key-button"]').trigger('click')
+      await wrapper.vm.$nextTick()
+      expect(isPromptVisible.value).toBe(true)
+    })
+  })
+
+  describe('key-rejected error state', () => {
+    it('shows the key-rejected banner when the suggestion call returns 401/403', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="key-rejected-state"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(false)
+    })
+
+    it('clears the stored key when the key-rejected banner appears', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const { hasKey } = useApiKey()
+      // Key is set in beforeEach
+      expect(hasKey.value).toBe(true)
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      expect(hasKey.value).toBe(false)
+    })
+
+    it('shows "Werk je API-sleutel bij" button in the banner', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      const btn = wrapper.find('[data-testid="update-key-button"]')
+      expect(btn.exists()).toBe(true)
+      expect(btn.text()).toBe('Werk je API-sleutel bij')
+    })
+
+    it('opens the key entry prompt when "Werk je API-sleutel bij" is clicked', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      const { isPromptVisible } = useApiKey()
+      aiStore.error = new AIKeyRejectedError()
+      await wrapper.vm.$nextTick()
+      await wrapper.find('[data-testid="update-key-button"]').trigger('click')
+      expect(isPromptVisible.value).toBe(true)
+    })
+  })
+
+  // Scenario: Container fields excluded from AI suggestion candidates
+  describe('container field exclusion', () => {
+    it('excludes container source fields from generateSuggestions arguments', async () => {
+      const wrapper = mountPanel({
+        sourceSchema: sourceSchemaWithContainers,
+        targetSchema: targetSchemaWithContainers,
+      })
+      const aiStore = useAISuggestions()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
+      await wrapper.vm.$nextTick()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [sourceArgs] = spy.mock.calls[0]!
+      expect(
+        sourceArgs.every((f) => sourceSchemaWithContainers.childrenOf(f.id).length === 0),
+      ).toBe(true)
+      expect(sourceArgs.some((f) => f.id === 'src-container')).toBe(false)
+    })
+
+    it('excludes container target fields from generateSuggestions arguments', async () => {
+      const wrapper = mountPanel({
+        sourceSchema: sourceSchemaWithContainers,
+        targetSchema: targetSchemaWithContainers,
+      })
+      const aiStore = useAISuggestions()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
+      await wrapper.vm.$nextTick()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [, targetArgs] = spy.mock.calls[0]!
+      expect(
+        targetArgs.every((f) => targetSchemaWithContainers.childrenOf(f.id).length === 0),
+      ).toBe(true)
+      expect(targetArgs.some((f) => f.id === 'tgt-container')).toBe(false)
+    })
+
+    it('excludes container fields at multiple nesting depths', async () => {
+      const wrapper = mountPanel({
+        sourceSchema: sourceSchemaWithContainers,
+        targetSchema: targetSchemaWithContainers,
+      })
+      const aiStore = useAISuggestions()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
+      await wrapper.vm.$nextTick()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
+      expect(sourceArgs.some((f) => f.id === 'src-nested-container')).toBe(false)
+      expect(sourceArgs.some((f) => f.id === 'src-deep')).toBe(true)
+      expect(targetArgs.some((f) => f.id === 'tgt-nested-container')).toBe(false)
+      expect(targetArgs.some((f) => f.id === 'tgt-deep')).toBe(true)
+    })
+  })
+
+  // Feature #89: scope selection gates suggestion generation
+  describe('suggestion scope selection', () => {
+    const scopedProps = {
+      sourceSchema: sourceSchemaWithContainers,
+      targetSchema: targetSchemaWithContainers,
+    }
+
+    it('disables generate button until a source root is selected (target is not scope-gated)', async () => {
+      const wrapper = mountPanel(scopedProps)
+      const scopeStore = useSuggestionScope()
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeDefined()
+
+      scopeStore.toggle('source', 'src-container')
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="generate-button"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('only sends leaves under selected source and target roots to generateSuggestions', async () => {
+      const wrapper = mountPanel(scopedProps)
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
+      await wrapper.vm.$nextTick()
+      const aiStore = useAISuggestions()
+      const spy = vi.spyOn(aiStore, 'generateSuggestions').mockResolvedValue([])
+      await wrapper.find('[data-testid="generate-button"]').trigger('click')
+      const [sourceArgs, targetArgs] = spy.mock.calls[0]!
+      expect(sourceArgs.map((f) => f.id).sort()).toEqual(['src-1', 'src-deep'])
+      expect(targetArgs.map((f) => f.id).sort()).toEqual(['tgt-1', 'tgt-deep'])
+    })
+
+    it('keeps existing suggestions visible when scope selection changes', async () => {
+      const wrapper = mountPanel(scopedProps)
+      const aiStore = useAISuggestions()
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-container')
+      await wrapper.vm.$nextTick()
+      aiStore.suggestions = [
+        {
+          id: '1',
+          sourceFieldId: 'src-1',
+          targetFieldId: 'tgt-1',
+          confidenceScore: 0.97,
+          status: 'pending',
+        },
+      ] as AiSuggestion[]
+      scopeStore.toggle('source', 'src-container')
+      await wrapper.vm.$nextTick()
+      expect(aiStore.suggestions).toHaveLength(1)
+    })
+
+    it('persists per-side selection to localStorage', async () => {
+      const wrapper = mountPanel(scopedProps)
+      const scopeStore = useSuggestionScope()
+      scopeStore.toggle('source', 'src-container')
+      scopeStore.toggle('target', 'tgt-container')
+      await wrapper.vm.$nextTick()
+      expect(JSON.parse(localStorage.getItem('ma_suggestion_scope_source_root_ids')!)).toContain(
+        'src-container',
+      )
+      expect(JSON.parse(localStorage.getItem('ma_suggestion_scope_target_root_ids')!)).toContain(
+        'tgt-container',
+      )
+    })
+
+    it('shows the "no scope" hint when either side has no selection', async () => {
+      const wrapper = mountPanel(scopedProps)
+      await wrapper.vm.$nextTick()
+      expect(wrapper.find('[data-testid="scope-required-hint"]').exists()).toBe(true)
+    })
+  })
+
+  // Scenario: Full path displayed in suggestion cards
+  describe('full path display', () => {
+    it('shows the full dot-notation path for source and target fields in suggestion cards', async () => {
+      const wrapper = mountPanel()
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        {
+          id: '1',
+          sourceFieldId: 'src-1',
+          targetFieldId: 'tgt-1',
+          confidenceScore: 0.97,
+          status: 'pending',
+        },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+      expect(wrapper.text()).toContain('Zaak.identificatie')
+      expect(wrapper.text()).toContain('Zaak.uuid')
+    })
+
+    it('shows path as-is for top-level fields where path equals name (no dot added)', async () => {
+      // Fields named "Zaak" at the top level: path === name, no dot-notation needed
+      const topLevelNodes: SchemaFieldNode[] = [
+        { id: 'src-top', name: 'Zaak', path: 'Zaak', dataType: 'string', required: true },
+      ]
+      const topLevelTargetNodes: SchemaFieldNode[] = [
+        { id: 'tgt-top', name: 'Zaak', path: 'Zaak', dataType: 'string', required: true },
+      ]
+      const srcSchema = buildSchema('', topLevelNodes)
+      const tgtSchema = buildSchema('', topLevelTargetNodes)
+      const wrapper = mountPanel({ sourceSchema: srcSchema, targetSchema: tgtSchema })
+      const aiStore = useAISuggestions()
+      aiStore.suggestions = [
+        {
+          id: '1',
+          sourceFieldId: 'src-top',
+          targetFieldId: 'tgt-top',
+          confidenceScore: 0.97,
+          status: 'pending',
+        },
+      ] as AiSuggestion[]
+      await wrapper.vm.$nextTick()
+      const card = wrapper.find('[data-testid="suggestion-card"]')
+      expect(card.exists()).toBe(true)
+      expect(card.text()).toContain('Zaak')
+      expect(card.text()).not.toContain('Zaak.')
     })
   })
 })
